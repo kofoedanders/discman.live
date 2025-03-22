@@ -10,12 +10,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Web.Users.Commands
 {
-    public class SetRegisterPutDistanceCommand : IRequest
+    public class SetRegisterPutDistanceCommand : IRequest<bool>
     {
         public bool RegisterPutDistance  { get; set; }
     }
     
-    public class SetUsePutDistanceCommandHandler : IRequestHandler<SetRegisterPutDistanceCommand>
+    public class SetUsePutDistanceCommandHandler : IRequestHandler<SetRegisterPutDistanceCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -26,7 +26,7 @@ namespace Web.Users.Commands
             _httpContextAccessor = httpContextAccessor;
         }
         
-        public async Task<Unit> Handle(SetRegisterPutDistanceCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(SetRegisterPutDistanceCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
@@ -35,7 +35,7 @@ namespace Web.Users.Commands
 
             _documentSession.Update(user);
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

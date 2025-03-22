@@ -14,12 +14,12 @@ using Web.Tournaments.Queries;
 
 namespace Web.Tournaments.Commands
 {
-    public class AddPlayerToTournamentCommand : IRequest
+    public class AddPlayerToTournamentCommand : IRequest<bool>
     {
         public Guid TournamentId { get; set; }
     }
 
-    public class AddPlayerToTournamentCommandHandler : IRequestHandler<AddPlayerToTournamentCommand>
+    public class AddPlayerToTournamentCommandHandler : IRequestHandler<AddPlayerToTournamentCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _contextAccessor;
@@ -32,7 +32,7 @@ namespace Web.Tournaments.Commands
             _mediator = mediator;
         }
 
-        public async Task<Unit> Handle(AddPlayerToTournamentCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(AddPlayerToTournamentCommand request, CancellationToken cancellationToken)
         {
             var username = _contextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var tournament = await _documentSession.Query<Tournament>().SingleAsync(t => t.Id == request.TournamentId, token: cancellationToken);
@@ -48,7 +48,7 @@ namespace Web.Tournaments.Commands
                 Username = username
             }, cancellationToken);
 
-            return Unit.Value;
+            return true;
         }
     }
 }

@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using Web.Infrastructure;
 using Web.Rounds;
 
@@ -13,15 +12,18 @@ namespace Web
 {
     public static class HubExtensions
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        
         public static Task NotifyPlayersOnUpdatedRound(this IHubContext<RoundsHub> hub, string username, Round round)
         {
             var notifyTasks = round
                 .PlayerScores
                 .Where(p => p.PlayerName != username)
                 .Select(s => hub.Clients.Group(s.PlayerName)
-                    .SendAsync("roundUpdated",
-                        JsonConvert.SerializeObject(round,
-                            new JsonSerializerSettings {ContractResolver = new CamelCasePropertyNamesContractResolver()})));
+                    .SendAsync("roundUpdated", JsonSerializer.Serialize(round, JsonOptions)));
 
             return Task.WhenAll(notifyTasks);
         }
@@ -32,9 +34,7 @@ namespace Web
                 .PlayerScores
                 .Where(p => p.PlayerName != round.CreatedBy)
                 .Select(s => hub.Clients.Group(s.PlayerName)
-                    .SendAsync("newRoundCreated",
-                        JsonConvert.SerializeObject(round,
-                            new JsonSerializerSettings {ContractResolver = new CamelCasePropertyNamesContractResolver()})));
+                    .SendAsync("newRoundCreated", JsonSerializer.Serialize(round, JsonOptions)));
 
             return Task.WhenAll(notifyTasks);
         }
@@ -52,9 +52,7 @@ namespace Web
         {
             var notifyTasks = round
                 .PlayerScores.Select(s => hub.Clients.Group(s.PlayerName)
-                    .SendAsync("roundUpdated",
-                        JsonConvert.SerializeObject(round,
-                            new JsonSerializerSettings {ContractResolver = new CamelCasePropertyNamesContractResolver()})));
+                    .SendAsync("roundUpdated", JsonSerializer.Serialize(round, JsonOptions)));
 
             return Task.WhenAll(notifyTasks);
         }

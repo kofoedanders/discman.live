@@ -10,12 +10,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Web.Users.Commands
 {
-    public class SetSettingsInitializedCommand : IRequest
+    public class SetSettingsInitializedCommand : IRequest<bool>
     {
 
     }
 
-    public class SetSettingsInitializedCommandHandler : IRequestHandler<SetSettingsInitializedCommand>
+    public class SetSettingsInitializedCommandHandler : IRequestHandler<SetSettingsInitializedCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -26,7 +26,7 @@ namespace Web.Users.Commands
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<Unit> Handle(SetSettingsInitializedCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(SetSettingsInitializedCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
@@ -35,7 +35,7 @@ namespace Web.Users.Commands
 
             _documentSession.Update(user);
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

@@ -10,12 +10,12 @@ using Web.Users.NSBEvents;
 
 namespace Web.Users.Commands
 {
-    public class AddFriendCommand : IRequest
+    public class AddFriendCommand : IRequest<bool>
     {
         public string Username { get; set; }
     }
 
-    public class AddFriendCommandHandler : IRequestHandler<AddFriendCommand>
+    public class AddFriendCommandHandler : IRequestHandler<AddFriendCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -28,7 +28,7 @@ namespace Web.Users.Commands
             _messageSession = messageSession;
         }
 
-        public async Task<Unit> Handle(AddFriendCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(AddFriendCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
@@ -47,7 +47,7 @@ namespace Web.Users.Commands
                 FriendName = friend.Username
             });
 
-            return new Unit();
+            return true;
         }
     }
 }

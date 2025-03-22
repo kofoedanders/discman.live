@@ -14,13 +14,13 @@ using Web.Rounds;
 
 namespace Web.Rounds.Commands
 {
-    public class DeleteHoleCommand : IRequest
+    public class DeleteHoleCommand : IRequest<bool>
     {
         public Guid RoundId { get; set; }
         public int HoleNumber { get; set; }
     }
 
-    public class DeleteHoleCommandHandler : IRequestHandler<DeleteHoleCommand>
+    public class DeleteHoleCommandHandler : IRequestHandler<DeleteHoleCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -33,7 +33,7 @@ namespace Web.Rounds.Commands
             _roundsHub = roundsHub;
         }
 
-        public async Task<Unit> Handle(DeleteHoleCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(DeleteHoleCommand request, CancellationToken cancellationToken)
         {
             var username = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
 
@@ -50,7 +50,7 @@ namespace Web.Rounds.Commands
             await _documentSession.SaveChangesAsync(cancellationToken);
             await _roundsHub.NotifyPlayersOnUpdatedRound(username, round);
 
-            return new Unit();
+            return true;
         }
     }
 }

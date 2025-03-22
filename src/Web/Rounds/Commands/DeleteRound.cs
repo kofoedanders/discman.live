@@ -12,12 +12,12 @@ using Web.Rounds.NSBEvents;
 
 namespace Web.Rounds.Commands
 {
-    public class DeleteRoundCommand : IRequest
+    public class DeleteRoundCommand : IRequest<bool>
     {
         public Guid RoundId { get; set; }
     }
 
-    public class DeleteRoundCommandHandler : IRequestHandler<DeleteRoundCommand>
+    public class DeleteRoundCommandHandler : IRequestHandler<DeleteRoundCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -30,7 +30,7 @@ namespace Web.Rounds.Commands
             _messageSession = messageSession;
         }
 
-        public async Task<Unit> Handle(DeleteRoundCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(DeleteRoundCommand request, CancellationToken cancellationToken)
         {
             var username = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
 
@@ -43,7 +43,7 @@ namespace Web.Rounds.Commands
 
             await _messageSession.Publish(new RoundWasDeleted { RoundId = round.Id, Players = round.PlayerScores.Select(s => s.PlayerName).ToList() });
 
-            return new Unit();
+            return true;
         }
     }
 }

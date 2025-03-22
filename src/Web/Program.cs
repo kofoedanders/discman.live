@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NpgsqlTypes;
 using NServiceBus;
@@ -20,7 +21,25 @@ namespace Web
             try
             {
                 Log.Information("Starting up");
-                CreateHostBuilder(args).Build().Run();
+                
+                var builder = WebApplication.CreateBuilder(args);
+                
+                // Add services to the container
+                var startup = new Startup(builder.Configuration, builder.Environment);
+                startup.ConfigureServices(builder.Services);
+                
+                // Configure NServiceBus
+                builder.Host.UseNServiceBus(context => NServiceBusConfiguration.ConfigureEndpoint());
+                
+                // Configure Serilog
+                builder.Host.UseSerilog();
+                
+                var app = builder.Build();
+                
+                // Configure the HTTP request pipeline
+                startup.Configure(app, app.Environment);
+                
+                app.Run();
             }
             catch (Exception ex)
             {
@@ -67,11 +86,5 @@ namespace Web
             logConfig.WriteTo.PostgreSQL(Environment.GetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING"), tableName, columnWriters, needAutoCreateTable: true);
             Log.Logger = logConfig.CreateLogger();
         }
-
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); })
-                .UseSerilog()
-                .UseNServiceBus(context => NServiceBusConfiguration.ConfigureEndpoint());
     }
 }

@@ -10,7 +10,7 @@ using Web.Users.Domain;
 
 namespace Web.Users.Commands
 {
-    public class InitiatePasswordResetCommand : IRequest
+    public class InitiatePasswordResetCommand : IRequest<bool>
     {
         private string _email;
 
@@ -21,7 +21,7 @@ namespace Web.Users.Commands
         }
     }
 
-    public class InitiatePasswordResetCommandHandler : IRequestHandler<InitiatePasswordResetCommand>
+    public class InitiatePasswordResetCommandHandler : IRequestHandler<InitiatePasswordResetCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly ISendGridClient _sendGridClient;
@@ -32,7 +32,7 @@ namespace Web.Users.Commands
             _sendGridClient = sendGridClient;
         }
 
-        public async Task<Unit> Handle(InitiatePasswordResetCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(InitiatePasswordResetCommand request, CancellationToken cancellationToken)
         {
             var resetId = Guid.NewGuid();
             Log.Information("Password reset requested for {Email} {ResetId}", request.Email, resetId);
@@ -40,14 +40,14 @@ namespace Web.Users.Commands
             if (user is null)
             {
                 Log.Information("Email {Email} does not exist {ResetId}", request.Email, resetId);
-                return Unit.Value;
+                return true;
             }
 
             var ongoing = await _documentSession.Query<ResetPasswordRequest>().SingleOrDefaultAsync(u => u.Email == request.Email, token: cancellationToken);
             if (ongoing != null)
             {
                 Log.Information("Already ongoing reset processes for {Email} exists {ResetId}", request.Email, ongoing.Id);
-                return Unit.Value;
+                return true;
             }
 
             var resetRequest = new ResetPasswordRequest
@@ -71,7 +71,7 @@ namespace Web.Users.Commands
 
             _documentSession.Store(resetRequest);
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

@@ -13,13 +13,13 @@ using Web.Rounds.NSBEvents;
 
 namespace Web.Rounds.Commands
 {
-    public class CompleteRoundCommand : IRequest
+    public class CompleteRoundCommand : IRequest<bool>
     {
         public Guid RoundId { get; set; }
         public string Base64Signature { get; set; }
     }
 
-    public class CompleteRoundCommandHandler : IRequestHandler<CompleteRoundCommand>
+    public class CompleteRoundCommandHandler : IRequestHandler<CompleteRoundCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -34,13 +34,13 @@ namespace Web.Rounds.Commands
             _messageSession = messageSession;
         }
 
-        public async Task<Unit> Handle(CompleteRoundCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(CompleteRoundCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var round = await _documentSession.Query<Round>().SingleAsync(x => x.Id == request.RoundId, token: cancellationToken);
             if (!round.IsPartOfRound(authenticatedUsername)) throw new UnauthorizedAccessException("You can only complete rounds you are part of");
-            if (round.IsCompleted) return new Unit();
-            if (round.Signatures.Any(s => s.Username == authenticatedUsername)) return new Unit();
+            if (round.IsCompleted) return true;
+            if (round.Signatures.Any(s => s.Username == authenticatedUsername)) return true;
 
             round.SignRound(authenticatedUsername, request.Base64Signature);
 
@@ -49,7 +49,7 @@ namespace Web.Rounds.Commands
             await _roundsHub.NotifyPlayersOnUpdatedRound(authenticatedUsername, round);
             if (round.IsCompleted) await _messageSession.Publish(new RoundWasCompleted { RoundId = round.Id });
 
-            return new Unit();
+            return true;
         }
     }
 }

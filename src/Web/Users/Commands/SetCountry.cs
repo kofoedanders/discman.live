@@ -10,12 +10,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Web.Users.Commands
 {
-    public class SetCountryCommand : IRequest
+    public class SetCountryCommand : IRequest<bool>
     {
         public string Country { get; set; }
     }
 
-    public class SetCountryCommandHandler : IRequestHandler<SetCountryCommand>
+    public class SetCountryCommandHandler : IRequestHandler<SetCountryCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -26,9 +26,9 @@ namespace Web.Users.Commands
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<Unit> Handle(SetCountryCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(SetCountryCommand request, CancellationToken cancellationToken)
         {
-            if (request.Country.Length > 20) return Unit.Value;
+            if (request.Country.Length > 20) return true;
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
 
@@ -36,7 +36,7 @@ namespace Web.Users.Commands
 
             _documentSession.Update(user);
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

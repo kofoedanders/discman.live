@@ -26,15 +26,15 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
   rabbitmq:
-    image: rabbitmq:3.9.11-alpine
+    image: rabbitmq:3.10.25-alpine
     container_name: rabbitmq
     hostname: rabbitmq
     mem_limit: 512m
     restart:
       unless-stopped
-      #ports:
-      #- 15672:15672
-      #- 5672:5672
+    # ports:
+    # - 15672:15672
+    # - 5672:5672
 
   postgres:
     image: clkao/postgres-plv8:11-2
@@ -43,8 +43,8 @@ services:
     restart: unless-stopped
     environment:
       - variables.env
-    #    ports:
-    #      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -52,6 +52,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  web:
+    image: sp1nakr/disclive:0.505
+    container_name: discmanweb
+    restart: unless-stopped
+    env_file:
+      - ./variables.env
+    # depends_on:
+    #   - rabbitmq
+    #   - postgres
 
   # elasticsearch:
   #   build:
@@ -99,15 +109,6 @@ services:
   #   depends_on:
   #     - elasticsearch
 
-  web:
-    image: sp1nakr/disclive:0.401
-    container_name: discmanweb
-    restart: unless-stopped
-    env_file:
-      - ./variables.env
-    depends_on:
-      - rabbitmq
-      - postgres
 
 volumes:
   elasticsearch:

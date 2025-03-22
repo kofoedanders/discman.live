@@ -10,12 +10,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Web.Users.Commands
 {
-    public class ChangePasswordCommand : IRequest
+    public class ChangePasswordCommand : IRequest<bool>
     {
         public string NewPassword { get; set; }
     }
     
-    public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand>
+    public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -28,7 +28,7 @@ namespace Web.Users.Commands
             _tokenSecret = configuration.GetValue<string>("TOKEN_SECRET");
         }
         
-        public async Task<Unit> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
@@ -40,7 +40,7 @@ namespace Web.Users.Commands
             _documentSession.Update(user);
             
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

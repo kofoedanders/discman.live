@@ -14,12 +14,12 @@ using Web.Rounds;
 
 namespace Web.Rounds.Commands
 {
-    public class LeaveRoundCommand : IRequest
+    public class LeaveRoundCommand : IRequest<bool>
     {
         public Guid RoundId { get; set; }
     }
 
-    public class LeaveRoundCommandHandler : IRequestHandler<LeaveRoundCommand>
+    public class LeaveRoundCommandHandler : IRequestHandler<LeaveRoundCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -32,7 +32,7 @@ namespace Web.Rounds.Commands
             _roundsHub = roundsHub;
         }
 
-        public async Task<Unit> Handle(LeaveRoundCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(LeaveRoundCommand request, CancellationToken cancellationToken)
         {
             var username = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
 
@@ -43,7 +43,7 @@ namespace Web.Rounds.Commands
             await _documentSession.SaveChangesAsync(cancellationToken);
             await _roundsHub.NotifyPlayersOnUpdatedRound(username, round);
 
-            return new Unit();
+            return true;
         }
     }
 }

@@ -13,12 +13,12 @@ using Web.Rounds;
 
 namespace Web.Feeds.Commands
 {
-    public class ToggleLikeItemCommand : IRequest
+    public class ToggleLikeItemCommand : IRequest<bool>
     {
         public Guid FeedItemId { get; set; }
     }
 
-    public class ToggleLikeItemCommandHandler : IRequestHandler<ToggleLikeItemCommand>
+    public class ToggleLikeItemCommandHandler : IRequestHandler<ToggleLikeItemCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -32,7 +32,7 @@ namespace Web.Feeds.Commands
             _roundsHub = roundsHub;
         }
 
-        public async Task<Unit> Handle(ToggleLikeItemCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(ToggleLikeItemCommand request, CancellationToken cancellationToken)
         {
             var username = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var feedItem = await _documentSession.Query<GlobalFeedItem>().SingleAsync(x => x.Id == request.FeedItemId, token: cancellationToken);
@@ -50,7 +50,7 @@ namespace Web.Feeds.Commands
             _documentSession.Update(feedItem);
             await _documentSession.SaveChangesAsync(cancellationToken);
 
-            return new Unit();
+            return true;
         }
     }
 }

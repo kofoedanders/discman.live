@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Marten;
@@ -39,7 +40,7 @@ namespace Web.Users.Commands
         {
             var hashedPw = new SaltSeasonedHashedPassword(request.Password);
             var newUser = new User(request.Username, request.Email, hashedPw);
-
+            Console.WriteLine(_tokenSecret);
             _documentSession.Store(newUser);
             await _documentSession.SaveChangesAsync(cancellationToken);
             var authenticatedUser = newUser.Authenticated(_tokenSecret);

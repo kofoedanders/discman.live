@@ -16,13 +16,13 @@ using Web.Users.Domain;
 
 namespace Web.Users.Commands
 {
-    public class ResetPasswordCommand : IRequest
+    public class ResetPasswordCommand : IRequest<bool>
     {
         public Guid ResetId { get; set; }
         public string NewPassword { get; set; }
     }
 
-    public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand>
+    public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly ISendGridClient _sendGridClient;
@@ -33,7 +33,7 @@ namespace Web.Users.Commands
             _sendGridClient = sendGridClient;
         }
 
-        public async Task<Unit> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
         {
             var resetPasswordRequest = await _documentSession
                 .Query<ResetPasswordRequest>()
@@ -55,7 +55,7 @@ namespace Web.Users.Commands
             _documentSession.Delete(resetPasswordRequest);
 
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

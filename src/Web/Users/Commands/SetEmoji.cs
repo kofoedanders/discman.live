@@ -10,12 +10,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace Web.Users.Commands
 {
-    public class SetEmojiCommand : IRequest
+    public class SetEmojiCommand : IRequest<bool>
     {
         public string Emoji { get; set; }
     }
 
-    public class SetEmojiCommandHandler : IRequestHandler<SetEmojiCommand>
+    public class SetEmojiCommandHandler : IRequestHandler<SetEmojiCommand, bool>
     {
         private readonly IDocumentSession _documentSession;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -26,9 +26,9 @@ namespace Web.Users.Commands
             _httpContextAccessor = httpContextAccessor;
         }
 
-        public async Task<Unit> Handle(SetEmojiCommand request, CancellationToken cancellationToken)
+        public async Task<bool> Handle(SetEmojiCommand request, CancellationToken cancellationToken)
         {
-            if (request.Emoji.Length > 2) return Unit.Value;
+            if (request.Emoji.Length > 2) return true;
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
 
@@ -36,7 +36,7 @@ namespace Web.Users.Commands
 
             _documentSession.Update(user);
             await _documentSession.SaveChangesAsync(cancellationToken);
-            return Unit.Value;
+            return true;
         }
     }
 }

@@ -48,24 +48,39 @@ namespace Web
             services.AddHostedService<ResetPasswordWorker>();
             // services.AddHostedService<DiscmanPointUpdater>();
             services.AddHostedService<UserEmailNotificationWorker>();
-            services.AddMediatR(Assembly.GetExecutingAssembly());
+            
+            // Updated MediatR configuration for v12.x
+            services.AddMediatR(cfg => {
+                cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(UnhandledExceptionBehaviour<,>));
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehaviour<,>));
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            });
 
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(UnhandledExceptionBehaviour<,>));
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(PerformanceBehaviour<,>));
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
             services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
             services.AddControllersWithViews(options => options.Filters.Add(new ApiExceptionFilter()));
             services.AddHttpContextAccessor();
 
-            services.AddSendGrid(options => { options.ApiKey = Configuration.GetValue<string>("SENDGRID_APIKEY"); });
+            services.AddSendGrid(options =>
+            {
+                var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    options.ApiKey = apiKey;
+                }
+                else
+                {
+                    // For development, provide a dummy API key
+                    options.ApiKey = "SG.dummy-key-for-development";
+                    Console.WriteLine("WARNING: Using dummy SendGrid API key. Set SENDGRID_API_KEY environment variable for email functionality.");
+                }
+            });
 
 
             // In production, the React files will be served from this directory
-            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "ClientApp/build"; });
-
-
+            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "wwwroot"; });
 
             services.ConfigureMarten(Configuration, _env);
             services.AddSingleton<LeaderboardCache>();

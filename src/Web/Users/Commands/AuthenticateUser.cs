@@ -51,6 +51,7 @@ namespace Web.Users.Commands
                 return null;
             }
 
+            Console.WriteLine(_tokenSecret);
             return user.Authenticated(_tokenSecret);
         }
     }

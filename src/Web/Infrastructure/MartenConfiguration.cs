@@ -28,7 +28,7 @@ namespace Web.Infrastructure
                         .ConnectionLimit(-1);
                 });
 
-                _.AutoCreateSchemaObjects = AutoCreate.All;
+                _.AutoCreateSchemaObjects = Weasel.Core.AutoCreate.All;
 
                 _.Schema.For<UserFeedItem>().Index(x => x.Username);
                 _.Schema.For<GlobalFeedItem>().Index(x => x.Id);
