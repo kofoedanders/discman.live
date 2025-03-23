@@ -84,43 +84,92 @@ namespace Web.Rounds.Commands
             var playerScore = round.PlayerScores.Single(x => x.PlayerName == username);
             var holesPlayed = playerScore.Scores.Where(x => x.Strokes != 0);
 
-            if (holesPlayed.Count() < 5) return;
-
-            var prevHole = holesPlayed.LastOrDefault();
-
-            if (holesPlayed.Count(x => x.RelativeToPar < 0) < 2 && holesPlayed.Count(x => x.RelativeToPar > 0) < 5)
-                playerScore.PlayerRoundStatusEmoji = "🤷";
-
-            if (holesPlayed.Sum(x => x.RelativeToPar) == 0)
-                playerScore.PlayerRoundStatusEmoji = "👌";
-
-            if (holesPlayed.Sum(x => x.RelativeToPar) < holesPlayed.Count() && !holesPlayed.Any(x => x.RelativeToPar > 1))
-                playerScore.PlayerRoundStatusEmoji = "🐢";
-
-            if (prevHole.RelativeToPar > 2)
-                playerScore.PlayerRoundStatusEmoji = "💣";
-
-            if (holesPlayed.TakeLast(5).Sum(x => x.RelativeToPar) < -1)
-                playerScore.PlayerRoundStatusEmoji = "🔥";
-
-            if (holesPlayed.TakeLast(5).Sum(x => x.RelativeToPar) > 5)
-                playerScore.PlayerRoundStatusEmoji = "🤮";
-
-            if (holesPlayed.Sum(x => x.RelativeToPar) > holesPlayed.Count() / 2 &&
-                holesPlayed.TakeLast(5).Sum(x => x.RelativeToPar) < -1)
-            {
-                playerScore.PlayerRoundStatusEmoji = "🚀";
+            // Default emoji if not enough holes played
+            if (holesPlayed.Count() < 5) {
+                playerScore.PlayerRoundStatusEmoji = "🏌️";
+                return;
             }
 
-            if (holesPlayed.TakeLast(3).All(x => x.RelativeToPar < 0))
+            var prevHole = holesPlayed.LastOrDefault();
+            var lastFiveHoles = holesPlayed.TakeLast(5);
+            var lastThreeHoles = holesPlayed.TakeLast(3);
+            var totalRelativeToPar = holesPlayed.Sum(x => x.RelativeToPar);
+            var lastFiveRelativeToPar = lastFiveHoles.Sum(x => x.RelativeToPar);
+
+            // Great performance - birdie streak
+            if (lastThreeHoles.All(x => x.RelativeToPar < 0)) {
                 playerScore.PlayerRoundStatusEmoji = "🦃";
+                return;
+            }
 
-            if (holesPlayed.TakeLast(5).All(x => x.RelativeToPar > 0))
+            // Hot streak - playing well recently
+            if (lastFiveRelativeToPar <= -1) {
+                playerScore.PlayerRoundStatusEmoji = "🔥";
+                return;
+            }
+
+            // Making a comeback - overall not great but improving
+            if (totalRelativeToPar > holesPlayed.Count() / 3 && lastFiveRelativeToPar <= 0) {
+                playerScore.PlayerRoundStatusEmoji = "🚀";
+                return;
+            }
+
+            // Just had a great hole
+            if (prevHole.RelativeToPar < 0) {
+                playerScore.PlayerRoundStatusEmoji = "👏";
+                return;
+            }
+
+            // Playing at par
+            if (Math.Abs(totalRelativeToPar) <= holesPlayed.Count() / 3) {
+                playerScore.PlayerRoundStatusEmoji = "👌";
+                return;
+            }
+
+            // Steady progress - not too many big mistakes
+            if (totalRelativeToPar <= holesPlayed.Count() && !holesPlayed.Any(x => x.RelativeToPar > 2)) {
+                playerScore.PlayerRoundStatusEmoji = "🐢";
+                return;
+            }
+
+            // Just had a bad hole, but encouraging
+            if (prevHole.RelativeToPar > 2) {
+                playerScore.PlayerRoundStatusEmoji = "💪";
+                return;
+            }
+
+            // Recent rough patch but not too bad
+            if (lastFiveRelativeToPar > 5 && lastFiveRelativeToPar <= 8) {
+                playerScore.PlayerRoundStatusEmoji = "😓";
+                return;
+            }
+
+            // Really struggling recently
+            if (lastFiveRelativeToPar > 8) {
+                playerScore.PlayerRoundStatusEmoji = "🤮";
+                return;
+            }
+
+            // Consistently over par but not terrible
+            if (lastFiveHoles.All(x => x.RelativeToPar > 0) && lastFiveRelativeToPar <= 10) {
+                playerScore.PlayerRoundStatusEmoji = "🤔";
+                return;
+            }
+
+            // Consistently way over par
+            if (lastFiveHoles.All(x => x.RelativeToPar > 0) && lastFiveRelativeToPar > 10) {
                 playerScore.PlayerRoundStatusEmoji = "🗑️";
+                return;
+            }
 
-            if (holesPlayed.Sum(x => x.RelativeToPar) < -3)
-                playerScore.PlayerRoundStatusEmoji = "🍆";
+            // Exceptional round overall
+            if (totalRelativeToPar <= -3) {
+                playerScore.PlayerRoundStatusEmoji = "🏆";
+                return;
+            }
 
+            // Default - neutral emoji if nothing else applies
+            playerScore.PlayerRoundStatusEmoji = "🤷";
         }
 
         private static void CalculateNewStartingHole(int holeIndex, Round round)

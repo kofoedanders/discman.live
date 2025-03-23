@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Round, PlayerCourseStats } from "../../store/Rounds";
 import colors, { scoreColorStyle } from "../../colors";
 import HoleScoreIndicator from "./HoleScoreIndicator";
 import SmallInfoWithHeader from "./SmallInfoWithHeader";
+import { emojiDescriptions } from "../../utils/emojiDescriptions";
 
 export interface ScoreCardProps {
   username: string;
@@ -49,6 +50,8 @@ const HoleScoreComponent = ({
   const prevHole = activeHole - 1 > -1 ? courseHoles[activeHole - 1] : null;
 
   const playersToDisplay = round.playerScores; //consider not showing all players
+
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   return (
     <div className="pt-1 pb-0">
@@ -159,7 +162,37 @@ const HoleScoreComponent = ({
                   key={i}
                   className={p.playerName === username ? "active-user-row" : ""}
                 >
-                  <td>{p.playerRoundStatusEmoji}</td>
+                  <td className="emoji-cell">
+                    <div className="emoji-tooltip-container" style={{ position: "relative" }}>
+                      <span 
+                        className="emoji-icon" 
+                        onClick={() => setActiveTooltip(activeTooltip === p.playerName ? null : p.playerName)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {p.playerRoundStatusEmoji}
+                      </span>
+                      {activeTooltip === p.playerName && p.playerRoundStatusEmoji && (
+                        <div 
+                          className="emoji-tooltip" 
+                          style={{
+                            position: "absolute",
+                            left: "100%",
+                            top: "-5px",
+                            backgroundColor: "#333",
+                            color: "white",
+                            padding: "5px 10px",
+                            borderRadius: "4px",
+                            zIndex: 10,
+                            whiteSpace: "nowrap",
+                            fontSize: "0.9rem",
+                            boxShadow: "0 2px 5px rgba(0,0,0,0.2)"
+                          }}
+                        >
+                          {emojiDescriptions[p.playerRoundStatusEmoji] || "Player status"}
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td
                     style={{
                       minWidth: "75px",
