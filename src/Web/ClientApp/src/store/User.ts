@@ -911,7 +911,7 @@ export const actionCreators = {
     if (!appState.user || !appState.user.loggedIn || !appState.user.user)
       return;
 
-    fetch(`api/users/${username}/yearsummary/2022`, {
+    fetch(`api/users/${username}/yearsummary/${year}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

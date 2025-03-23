@@ -48,7 +48,7 @@ const UserComponent = (props: Props) => {
       </h3>
       {(thisMonth > 10 || thisMonth < 3) && (
         <div className="has-text-centered">
-          <Link to={`/user/yearsummary/${summaryYear}`}>
+          <Link to={`/user/${username}/yearsummary/${summaryYear}`}>
             <button className="button is-medium is-warning is-rounded m-3">
               See your yearly summary!
             </button>

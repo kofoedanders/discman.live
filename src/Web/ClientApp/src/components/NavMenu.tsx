@@ -179,6 +179,19 @@ const NavMenu = (props: Props) => {
                 </span>
                 &nbsp; About
               </Link>
+              {/* Year Summary - shown in the first 3 months and last 2 months */}
+              {(new Date().getMonth() <= 2 || new Date().getMonth() >= 10) && (
+                <Link
+                  to={`/user/${props.user?.user?.username}/yearsummary/${new Date().getMonth() >= 10 ? new Date().getFullYear() : new Date().getFullYear() - 1}`}
+                  className="panel-block"
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="panel-icon">
+                    <i className="fas fa-lg fa-calendar-alt"></i>
+                  </span>
+                  &nbsp; Year Summary
+                </Link>
+              )}
             </article>
             <article className="panel">
               <span

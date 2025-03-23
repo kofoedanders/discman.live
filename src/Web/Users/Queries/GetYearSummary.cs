@@ -64,9 +64,13 @@ namespace Web.Users.Queries
 
         private static Dictionary<string, double> CalculateCardmateAverages(List<Round> playerRounds, string requestUsername)
         {
-            var cardmates = playerRounds.SelectMany(r => r.PlayerScores.Select(p => p.PlayerName)).Distinct().ToDictionary(p => p, _ => 0.0);
+            var cardmates = playerRounds
+                .SelectMany(r => r.PlayerScores.Select(p => p.PlayerName))
+                .Where(name => name != requestUsername) 
+                .Distinct()
+                .ToDictionary(p => p, _ => 0.0);
 
-            foreach (var cardmate in cardmates.Keys)
+            foreach (var cardmate in cardmates.Keys.ToList()) 
             {
                 var roundsWithCardmate = playerRounds.Where(r => r.PlayerScores.Any(p => p.PlayerName == cardmate));
                 if (roundsWithCardmate.Count() < 5)
