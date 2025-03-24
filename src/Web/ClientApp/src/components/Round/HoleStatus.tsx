@@ -116,6 +116,7 @@ export default ({
                 playerStats={playerStats}
               />
             )}
+            {/* Time projection has been moved to a separate dialog accessible from the clock badge in the Round component */}
           </div>
 
           <footer

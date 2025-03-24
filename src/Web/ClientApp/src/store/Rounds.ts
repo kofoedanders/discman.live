@@ -909,6 +909,8 @@ export const reducer: Reducer<RoundsState> = (
       return {
         ...state,
         round: action.round,
+        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+        editHole: false,
       };
     case "NEW_ROUND_CREATED":
       return {
@@ -944,6 +946,13 @@ export const reducer: Reducer<RoundsState> = (
       return {
         ...state,
         roundTimeProjection: action.timeProjection,
+      };
+    case "GOTO_NEXT_PERSONAL_HOLE":
+      return {
+        ...state,
+        activeHoleIndex: state.round
+          ? getNextPlayerHole(state.round, action.username)
+          : state.activeHoleIndex,
       };
     default:
       return state;

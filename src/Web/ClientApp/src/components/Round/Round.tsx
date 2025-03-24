@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { connect, ConnectedProps } from "react-redux";
 import { ApplicationState } from "../../store";
 import * as RoundsStore from "../../store/Rounds";
@@ -15,6 +15,7 @@ import Colors from "../../colors";
 import SignRound from "./SignRound";
 import HoleStatus from "./HoleStatus";
 import RoundTimeProjection from "./RoundTimeProjection";
+import RoundTimeProjectionDialog from "./RoundTimeProjectionDialog";
 
 const mapState = (state: ApplicationState) => {
   return {
@@ -25,6 +26,7 @@ const mapState = (state: ApplicationState) => {
     activeHoleIndex: state.rounds?.activeHoleIndex || 0,
     finishedRoundStats: state.rounds?.finishedRoundStats || [],
     editHole: state.rounds?.editHole,
+    roundTimeProjection: state.rounds?.roundTimeProjection,
   };
 };
 
@@ -52,6 +54,7 @@ const toDateString = (date: Date) => {
 };
 
 const RoundComponent = (props: Props) => {
+  const [showTimeProjectionDialog, setShowTimeProjectionDialog] = useState(false);
   const {
     round,
     activeHoleIndex,
@@ -65,6 +68,7 @@ const RoundComponent = (props: Props) => {
     setEditHole,
     playersStats,
     fetchActiveRoundTimeProjection,
+    roundTimeProjection,
   } = props;
   let { roundId } = useParams<{ roundId: string }>();
   const roundCompleted = round?.isCompleted;
@@ -107,6 +111,22 @@ const RoundComponent = (props: Props) => {
           <div className="is-size-5">
             {`${round.courseName} ` || round?.roundName}
           </div>
+        </div>
+        <div className="level-item has-text-centered">
+          {!roundCompleted && roundTimeProjection && (
+            <div 
+              className="is-size-7 has-text-grey" 
+              style={{ cursor: 'pointer' }}
+              onClick={() => setShowTimeProjectionDialog(true)}
+            >
+              <span className="icon is-small mr-1">
+                <i className="fas fa-clock"></i>
+              </span>
+              {new Date(roundTimeProjection.estimatedFinishTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {' '}
+              ({Math.floor(roundTimeProjection.estimatedMinutesRemaining / 60)}h {Math.round(roundTimeProjection.estimatedMinutesRemaining % 60)}m)
+            </div>
+          )}
         </div>
         <div className="level-item has-text-centered">
           <NavMenu />
@@ -164,8 +184,6 @@ const RoundComponent = (props: Props) => {
                   />
                 }
                 
-                {/* Display projected finish time for active rounds */}
-                {!round.isCompleted && <RoundTimeProjection />}
               </>
             )}
             {props.scoreCardOpen && (
@@ -183,6 +201,12 @@ const RoundComponent = (props: Props) => {
           </>
         )}
       </>
+      {showTimeProjectionDialog && roundTimeProjection && (
+        <RoundTimeProjectionDialog
+          timeProjection={roundTimeProjection}
+          onClose={() => setShowTimeProjectionDialog(false)}
+        />
+      )}
     </div>
   );
 };
