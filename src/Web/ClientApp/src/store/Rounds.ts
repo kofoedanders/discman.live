@@ -899,6 +899,7 @@ export const reducer: Reducer<RoundsState> = (
       return {
         ...state,
         round: action.round,
+        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
       };
     case "ROUND_WAS_UPDATED":
       return {
