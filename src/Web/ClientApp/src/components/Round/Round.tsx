@@ -14,6 +14,7 @@ import NavMenu from "../NavMenu";
 import Colors from "../../colors";
 import SignRound from "./SignRound";
 import HoleStatus from "./HoleStatus";
+import RoundTimeProjection from "./RoundTimeProjection";
 
 const mapState = (state: ApplicationState) => {
   return {
@@ -63,6 +64,7 @@ const RoundComponent = (props: Props) => {
     editHole,
     setEditHole,
     playersStats,
+    fetchActiveRoundTimeProjection,
   } = props;
   let { roundId } = useParams<{ roundId: string }>();
   const roundCompleted = round?.isCompleted;
@@ -71,7 +73,12 @@ const RoundComponent = (props: Props) => {
     fetchRound(roundId as string);
     fetchStatsOnCourse(roundId);
     roundCompleted && fetchUserStats(roundId);
-  }, [fetchRound, fetchStatsOnCourse, fetchUserStats, roundCompleted, roundId]);
+    
+    // Fetch time projection data for active rounds
+    if (!roundCompleted) {
+      props.fetchActiveRoundTimeProjection();
+    }
+  }, [fetchRound, fetchStatsOnCourse, fetchUserStats, roundCompleted, roundId, props.fetchActiveRoundTimeProjection]);
 
   const allScoresSet = round?.playerScores.every((p) =>
     p.scores.every((s) => s.strokes !== 0)
@@ -156,6 +163,9 @@ const RoundComponent = (props: Props) => {
                     username={username}
                   />
                 }
+                
+                {/* Display projected finish time for active rounds */}
+                {!round.isCompleted && <RoundTimeProjection />}
               </>
             )}
             {props.scoreCardOpen && (

@@ -112,6 +112,22 @@ export interface PlayerSignature {
   signedAt: Date;
 }
 
+export interface RoundTimeProjection {
+  roundId: string;
+  holeTimeEstimates: HoleTimeEstimate[];
+  estimatedFinishTime: Date;
+  totalEstimatedMinutes: number;
+  estimatedMinutesRemaining: number;
+  currentAverageMinutesPerHole: number;
+  historicalAverageMinutesPerHole: number;
+  isAheadOfHistoricalPace: boolean;
+}
+
+export interface HoleTimeEstimate {
+  holeNumber: number;
+  averageMinutesToComplete: number;
+}
+
 export interface RoundsState {
   rounds: Round[];
   round: Round | null;
@@ -120,12 +136,18 @@ export interface RoundsState {
   scoreCardOpen: boolean;
   finishedRoundStats: UserStats[];
   editHole: boolean;
+  roundTimeProjection: RoundTimeProjection | null;
 }
 
 //Actions
 export interface FetchRoundsSuccessAction {
   type: "FETCH_ROUNDS_SUCCEED";
   rounds: Round[];
+}
+
+export interface FetchTimeProjectionSuccessAction {
+  type: "FETCH_TIME_PROJECTION_SUCCEED";
+  timeProjection: RoundTimeProjection;
 }
 
 export interface GoToNextPersonalHoleAction {
@@ -221,24 +243,25 @@ export interface SetEditHoleAction {
 export type KnownAction =
   | FetchRoundsSuccessAction
   | FetchRoundSuccessAction
-  | ScoreUpdatedSuccessAction
   | NewRoundCreatedAction
+  | RoundWasUpdatedAction
+  | ScoreUpdatedSuccessAction
+  | FetchRoundStatsSuccessAction
+  | SpectatorJoinedAction
+  | SpectatorLeftAction
+  | SetActiveHoleAction
+  | CourseWasSavedAction
   | HoleWasDeletedAction
-  | CallHistoryMethodAction
+  | RoundWasCompletedAction
+  | RoundWasDeletedAction
   | ConnectToHubAction
   | DisconnectToHubAction
-  | RoundWasUpdatedAction
-  | SetActiveHoleAction
-  | RoundWasCompletedAction
   | PlayerCourseStatsFethSuceed
   | ToggleScoreCardAction
-  | SpectatorJoinedAction
-  | RoundWasDeletedAction
-  | SpectatorLeftAction
-  | FetchRoundStatsSuccessAction
-  | GoToNextPersonalHoleAction
   | SetEditHoleAction
-  | CourseWasSavedAction;
+  | GoToNextPersonalHoleAction
+  | FetchTimeProjectionSuccessAction
+  | CallHistoryMethodAction;
 
 const fetchRound = (
   roundId: string,
@@ -285,6 +308,7 @@ const initialState: RoundsState = {
   scoreCardOpen: false,
   finishedRoundStats: [],
   editHole: false,
+  roundTimeProjection: null,
 };
 
 export const actionCreators = {
@@ -298,6 +322,36 @@ export const actionCreators = {
     (dispatch) => {
       dispatch({ type: "TOGGLE_SCORECARD", open });
     },
+  fetchActiveRoundTimeProjection: (): AppThunkAction<KnownAction> => async (
+    dispatch,
+    getState
+  ) => {
+    try {
+      // Get the authentication token from the user state
+      const token = getState().user?.user?.token;
+      
+      const response = await fetch(`api/rounds/active/time-projection`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+      });
+
+      if (response.ok) {
+        const timeProjection = await response.json();
+        // Convert string dates to Date objects
+        timeProjection.estimatedFinishTime = new Date(timeProjection.estimatedFinishTime);
+        
+        dispatch({
+          type: "FETCH_TIME_PROJECTION_SUCCEED",
+          timeProjection,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching time projection:", error);
+    }
+  },
   roundWasUpdated: (round: Round) => {
     return { type: "ROUND_WAS_UPDATED", round: round };
   },
@@ -836,87 +890,60 @@ export const reducer: Reducer<RoundsState> = (
 
   const action = incomingAction as KnownAction;
   switch (action.type) {
-    case "ROUND_WAS_UPDATED":
-      if (state.round?.id !== action.round.id) return state;
+    case "FETCH_ROUNDS_SUCCEED":
       return {
         ...state,
-        round: action.round,
-        //if holes has been shifted on the server, the activeHoleIndex is no longer valid
-        // activeHoleIndex:
-        //   action.round.playerScores[0].scores[0].hole.number !==
-        //   state.round.playerScores[0].scores[0].hole.number
-        //     ? getActiveHole(action.round, action.username)
-        //     : state.activeHoleIndex,
-        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+        rounds: action.rounds,
       };
-    case "TOGGLE_SCORECARD":
-      return { ...state, scoreCardOpen: action.open };
-    case "SET_EDIT_HOLE":
-      return { ...state, editHole: action.editHole };
-    case "FETCH_ROUNDS_SUCCEED":
-      return { ...state, rounds: action.rounds };
     case "FETCH_ROUND_SUCCEED":
       return {
         ...state,
         round: action.round,
-        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
       };
-    case "NEW_ROUND_CREATED":
-      return { ...state, round: action.round };
-    case "FETCH_ROUND_STATS_SUCCESS":
-      return { ...state, finishedRoundStats: action.userStats };
+    case "ROUND_WAS_UPDATED":
+      return {
+        ...state,
+        round: action.round,
+      };
     case "SCORE_UPDATED_SUCCESS":
       return {
         ...state,
         round: action.round,
-        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
-        editHole: false,
       };
-
-    case "GOTO_NEXT_PERSONAL_HOLE":
+    case "NEW_ROUND_CREATED":
       return {
         ...state,
-        activeHoleIndex: state.round
-          ? getNextPlayerHole(state.round, action.username)
-          : state.activeHoleIndex,
+        round: action.round,
       };
-    case "ROUND_WAS_COMPLETED":
-      if (!state.round) return state;
+    case "FETCH_ROUND_STATS_SUCCESS":
       return {
         ...state,
-        round: { ...state.round, isCompleted: true },
-      };
-    case "HOLE_WAS_DELETED":
-      if (!state.round) return state;
-      return {
-        ...state,
-        round: {
-          ...state.round,
-          playerScores: state.round?.playerScores.map((p) => {
-            return {
-              ...p,
-              scores: p.scores.filter(
-                (s) => s.hole.number !== action.holeNumber
-              ),
-            };
-          }),
-        },
-      };
-    case "ROUND_WAS_DELETED":
-      if (state.round?.id === action.roundId) {
-        return initialState;
-      }
-      return state;
-    case "SET_ACTIVE_HOLE":
-      // if (action.hole > nextHole) return state;
-      return {
-        ...state,
-        activeHoleIndex: action.holeIndex,
+        finishedRoundStats: action.userStats,
       };
     case "FETCH_COURSE_STATS_SUCCEED":
       return {
         ...state,
         playerCourseStats: action.stats,
+      };
+    case "SET_ACTIVE_HOLE":
+      return {
+        ...state,
+        activeHoleIndex: action.holeIndex,
+      };
+    case "TOGGLE_SCORECARD":
+      return {
+        ...state,
+        scoreCardOpen: action.open,
+      };
+    case "SET_EDIT_HOLE":
+      return {
+        ...state,
+        editHole: action.editHole,
+      };
+    case "FETCH_TIME_PROJECTION_SUCCEED":
+      return {
+        ...state,
+        roundTimeProjection: action.timeProjection,
       };
     default:
       return state;

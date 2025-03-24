@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -128,6 +128,16 @@ namespace Web.Rounds
         public async Task<IActionResult> GetCourseStatsForRound(Guid roundId)
         {
             return Ok(await _mediator.Send(new GetPlayersCourseStatsQuery { RoundId = roundId }));
+        }
+
+        [HttpGet("active/time-projection")]
+        public async Task<ActionResult<RoundTimeProjection>> GetActiveRoundTimeProjection()
+        {
+            var result = await _mediator.Send(new GetActiveRoundTimeProjectionQuery());
+            
+            if (result == null) return NotFound("No active round found");
+            
+            return Ok(result);
         }
     }
 
