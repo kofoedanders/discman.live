@@ -17,6 +17,12 @@ type PropsFromRedux = ConnectedProps<typeof connector>;
 
 type Props = PropsFromRedux & {};
 
+interface PlayerCourseStats {
+  playerName: string;
+  thisRoundVsAverage: number;
+  courseAverage: number;
+}
+
 const PlayerCourseImprovments = (props: Props) => {
   const { playersCourseStats, round, fetchStatsOnCourse } = props;
   const roundId = round?.id;
@@ -50,7 +56,7 @@ const PlayerCourseImprovments = (props: Props) => {
         </tr>
       </thead>
       <tbody>
-        {playersCourseStats.map((s) => {
+        {playersCourseStats.map((s: PlayerCourseStats) => {
           const improv = Math.round(s.thisRoundVsAverage);
           const courseAvg = Math.round(s.courseAverage);
           return (

@@ -52,8 +52,6 @@ namespace Web.Rounds.Queries
 
         public async Task<RoundPaceData> Handle(GetRoundPaceDataQuery request, CancellationToken cancellationToken)
         {
-        
-            await PaceAnalysis.AnalyzePaceFactors(_session);
             var round = await _session.Query<Round>()
                 .SingleOrDefaultAsync(r => r.Id == request.RoundId, token: cancellationToken);
             

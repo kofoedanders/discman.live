@@ -112,62 +112,51 @@ export interface PlayerSignature {
   signedAt: Date;
 }
 
-export interface RoundTimeProjection {
-  roundId: string;
-  holeTimeEstimates: HoleTimeEstimate[];
+export interface CurrentPace {
   estimatedFinishTime: Date;
-  totalEstimatedMinutes: number;
-  estimatedMinutesRemaining: number;
-  currentAverageMinutesPerHole: number;
-  historicalAverageMinutesPerHole: number;
-  isAheadOfHistoricalPace: boolean;
-}
-
-export interface HoleTimeEstimate {
-  holeNumber: number;
-  averageMinutesToComplete: number;
+  minutesPerHole: number;
+  isAhead: boolean;
+  completedHoles: number;
 }
 
 export interface PaceData {
-  playerAverages: Record<string, number[]>;
+  playerAverages: { [playerName: string]: number[] };
   courseAverage: number[];
   groupAdjustedPace: number[];
 }
 
-export interface PaceState {
-  estimatedFinishTime?: Date;
-  minutesPerHole?: number;
-  isAhead?: boolean;
-  completedHoles?: number;
-}
-
 export interface RoundsState {
+  isLoading: boolean;
   rounds: Round[];
   round: Round | null;
-  activeHoleIndex: number;
-  playerCourseStats: PlayerCourseStats[] | null;
-  scoreCardOpen: boolean;
+  playerStats: {
+    personal: {
+      holes: any[];
+      totalScores: any[];
+      years: any;
+    };
+    course: {
+      holes: any[];
+      totalScores: any[];
+      years: any;
+    };
+  };
+  playerRoundStatistics: any | null;
+  playerCourseStatistics: any | null;
+  currentPace: CurrentPace | null;
+  paceData: PaceData | null;
+  scorecardOpen: boolean;
   finishedRoundStats: UserStats[];
   editHole: boolean;
-  roundTimeProjection: RoundTimeProjection | null;
-  paceData?: PaceData;
-  currentPace?: PaceState;
+  activeHoleIndex: number;
+  playerCourseStats: any | null;
+  friendsRounds: Round[];
 }
 
 //Actions
 export interface FetchRoundsSuccessAction {
   type: "FETCH_ROUNDS_SUCCEED";
   rounds: Round[];
-}
-
-export interface FetchTimeProjectionSuccessAction {
-  type: "FETCH_TIME_PROJECTION_SUCCEED";
-  timeProjection: RoundTimeProjection;
-}
-
-export interface GoToNextPersonalHoleAction {
-  type: "GOTO_NEXT_PERSONAL_HOLE";
-  username: string;
 }
 
 export interface FetchRoundSuccessAction {
@@ -240,6 +229,7 @@ export interface ConnectToHubAction {
 export interface DisconnectToHubAction {
   type: "DISCONNECT_TO_HUB";
 }
+
 export interface PlayerCourseStatsFethSuceed {
   type: "FETCH_COURSE_STATS_SUCCEED";
   stats: PlayerCourseStats[];
@@ -260,6 +250,11 @@ export interface SetPaceDataAction {
   paceData: PaceData;
 }
 
+export interface GoToNextPersonalHoleAction {
+  type: "GOTO_NEXT_PERSONAL_HOLE";
+  username: string;
+}
+
 export interface UpdateCurrentPaceAction {
   type: "UPDATE_CURRENT_PACE";
 }
@@ -267,8 +262,8 @@ export interface UpdateCurrentPaceAction {
 export type KnownAction =
   | FetchRoundsSuccessAction
   | FetchRoundSuccessAction
-  | NewRoundCreatedAction
   | RoundWasUpdatedAction
+  | NewRoundCreatedAction
   | ScoreUpdatedSuccessAction
   | FetchRoundStatsSuccessAction
   | SpectatorJoinedAction
@@ -283,11 +278,10 @@ export type KnownAction =
   | PlayerCourseStatsFethSuceed
   | ToggleScoreCardAction
   | SetEditHoleAction
-  | GoToNextPersonalHoleAction
-  | FetchTimeProjectionSuccessAction
-  | CallHistoryMethodAction
+  | UpdateCurrentPaceAction
   | SetPaceDataAction
-  | UpdateCurrentPaceAction;
+  | GoToNextPersonalHoleAction
+  | CallHistoryMethodAction;
 
 const fetchRound = (
   roundId: string,
@@ -327,16 +321,31 @@ const fetchRound = (
 };
 
 const initialState: RoundsState = {
+  isLoading: false,
   rounds: [],
   round: null,
-  activeHoleIndex: 0,
-  playerCourseStats: null,
-  scoreCardOpen: false,
+  friendsRounds: [],
+  playerStats: {
+    personal: {
+      holes: [],
+      totalScores: [],
+      years: {},
+    },
+    course: {
+      holes: [],
+      totalScores: [],
+      years: {}
+    },
+  },
+  playerRoundStatistics: null,
+  playerCourseStatistics: null, 
+  scorecardOpen: false,
   finishedRoundStats: [],
   editHole: false,
-  roundTimeProjection: null,
-  paceData: undefined,
-  currentPace: undefined,
+  activeHoleIndex: 0,
+  playerCourseStats: null,
+  paceData: null,
+  currentPace: null,
 };
 
 export const actionCreators = {
@@ -350,7 +359,7 @@ export const actionCreators = {
     (dispatch) => {
       dispatch({ type: "TOGGLE_SCORECARD", open });
     },
-  fetchActiveRoundTimeProjection: (): AppThunkAction<KnownAction> => async (
+  fetchActiveRound: (): AppThunkAction<KnownAction> => async (
     dispatch,
     getState
   ) => {
@@ -358,7 +367,7 @@ export const actionCreators = {
       // Get the authentication token from the user state
       const token = getState().user?.user?.token;
       
-      const response = await fetch(`api/rounds/active/time-projection`, {
+      const response = await fetch(`api/rounds/active`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -367,17 +376,21 @@ export const actionCreators = {
       });
 
       if (response.ok) {
-        const timeProjection = await response.json();
-        // Convert string dates to Date objects
-        timeProjection.estimatedFinishTime = new Date(timeProjection.estimatedFinishTime);
+        const round: Round = await response.json();
         
-        dispatch({
-          type: "FETCH_TIME_PROJECTION_SUCCEED",
-          timeProjection,
-        });
+        if (round) {
+          dispatch({
+            type: "FETCH_ROUND_SUCCEED",
+            round,
+            username: getState().user?.user?.username || ''  // Add a default empty string to fix type error
+          });
+          
+          // Fetch pace data for the active round
+          actionCreators.fetchPaceData(round.id as string)(dispatch, getState);
+        }
       }
     } catch (error) {
-      console.error("Error fetching time projection:", error);
+      console.error("Error fetching active round:", error);
     }
   },
   roundWasUpdated: (round: Round) => {
@@ -967,19 +980,6 @@ function calculatePaceForRound(round: Round, paceData: PaceData): {
 
   const estimatedFinishTime = new Date(Date.now() + estimatedMinutesRemaining * 60000);
 
-  console.log('Pace Calculation:', {
-    completedHoles,
-    playerCount,
-    currentAvg,
-    historicalAvg,
-    actualMinutesSpent,
-    expectedMinutesForCompletedHoles,
-    minutesPerHole,
-    estimatedMinutesRemaining,
-    usingIndividualHoleAverages: true,
-    estimatedFinishTime: estimatedFinishTime.toISOString()
-  });
-
   return {
     currentAvg,
     minutesPerHole,
@@ -1091,24 +1091,12 @@ export const reducer: Reducer<RoundsState> = (
     case "TOGGLE_SCORECARD":
       return {
         ...state,
-        scoreCardOpen: action.open,
+        scorecardOpen: action.open,
       };
     case "SET_EDIT_HOLE":
       return {
         ...state,
         editHole: action.editHole,
-      };
-    case "FETCH_TIME_PROJECTION_SUCCEED":
-      return {
-        ...state,
-        roundTimeProjection: action.timeProjection,
-      };
-    case "GOTO_NEXT_PERSONAL_HOLE":
-      return {
-        ...state,
-        activeHoleIndex: state.round
-          ? getNextPlayerHole(state.round, action.username)
-          : state.activeHoleIndex,
       };
     case "SET_PACE_DATA": {
       if (!state.round) return { ...state, paceData: action.paceData };

@@ -1,9 +1,9 @@
 import React from "react";
 import colors from "../../colors";
-import { RoundTimeProjection as RoundTimeProjectionModel } from "../../store/Rounds";
+import { CurrentPace } from "../../store/Rounds";
 
 interface RoundTimeProjectionDialogProps {
-  timeProjection: RoundTimeProjectionModel;
+  currentPace: CurrentPace;
   onClose: () => void;
 }
 
@@ -18,20 +18,14 @@ const formatDuration = (minutes: number): string => {
 };
 
 const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({ 
-  timeProjection, 
+  currentPace, 
   onClose 
 }) => {
-  if (!timeProjection) return null;
-
-  const estimatedFinishTime = new Date(timeProjection.estimatedFinishTime);
-  const now = new Date();
-  
-  const elapsedMinutes = timeProjection.totalEstimatedMinutes - timeProjection.estimatedMinutesRemaining;
-  const remainingMinutes = timeProjection.estimatedMinutesRemaining;
-  
-  const currentPace = timeProjection.currentAverageMinutesPerHole;
-  const historicalPace = timeProjection.historicalAverageMinutesPerHole;
-  const paceComparison = currentPace - historicalPace;
+  // Calculate estimated total time based on pace data
+  const totalHoles = 18; // Assuming standard round length
+  const totalEstimatedMinutes = currentPace.minutesPerHole * totalHoles;
+  const estimatedMinutesRemaining = currentPace.minutesPerHole * (totalHoles - currentPace.completedHoles);
+  const elapsedMinutes = totalEstimatedMinutes - estimatedMinutesRemaining;
   
   return (
     <div className="modal is-active">
@@ -55,7 +49,7 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
           <div className="content">
             <div className="has-text-centered mb-5">
               <h2 className="title is-4">
-                Estimated Finish: {formatTime(estimatedFinishTime)}
+                Estimated Finish: {formatTime(currentPace.estimatedFinishTime)}
               </h2>
             </div>
             
@@ -66,29 +60,28 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
               </div>
               <div className="column has-text-centered">
                 <p className="heading">Remaining</p>
-                <p className="title is-5">{formatDuration(remainingMinutes)}</p>
+                <p className="title is-5">{formatDuration(estimatedMinutesRemaining)}</p>
               </div>
             </div>
             
             <div className="columns is-mobile">
               <div className="column has-text-centered">
                 <p className="heading">Current Pace</p>
-                <p className="title is-5">{currentPace.toFixed(1)} min/hole</p>
+                <p className="title is-5">{currentPace.minutesPerHole.toFixed(1)} min/hole</p>
               </div>
               <div className="column has-text-centered">
-                <p className="heading">Your Average</p>
-                <p className="title is-5">{historicalPace.toFixed(1)} min/hole</p>
+                <p className="heading">Completed</p>
+                <p className="title is-5">{currentPace.completedHoles} / 18 holes</p>
               </div>
             </div>
             
-            {paceComparison !== 0 && (
-              <div className="has-text-centered mt-4">
-                <p className={`${paceComparison > 0 ? 'has-text-danger' : 'has-text-success'}`}>
-                  You're playing {Math.abs(paceComparison).toFixed(1)} min/hole 
-                  {paceComparison > 0 ? ' slower' : ' faster'} than usual
-                </p>
-              </div>
-            )}
+            <div className="has-text-centered mt-4">
+              <span className={`tag is-medium ${currentPace.isAhead ? 'is-success' : 'is-danger'}`}>
+                {currentPace.isAhead 
+                  ? 'Ahead of Average Pace' 
+                  : 'Behind Average Pace'}
+              </span>
+            </div>
           </div>
         </section>
         <footer 

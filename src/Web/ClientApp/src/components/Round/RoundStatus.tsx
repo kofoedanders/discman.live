@@ -26,10 +26,29 @@ const RoundStatus = (props: Props) => {
   const [showDialog, setShowDialog] = useState(false);
   const [showPlayer] = useState(user?.user?.username);
 
-  const playerStats = stats && stats.find((s) => s.playerName === showPlayer);
+  interface PlayerStat {
+    playerName: string;
+    averagePrediction: number[];
+    courseAverage: number;
+    playerCourseRecord: number;
+    roundsPlayed: number;
+  }
+
+  interface PlayerScore {
+    playerName: string;
+    scores: Score[];
+  }
+
+  interface Score {
+    hole: { number: number };
+    relativeToPar: number;
+    strokes: number;
+  }
+
+  const playerStats = stats && stats.find((s: PlayerStat) => s.playerName === showPlayer);
 
   const playerRoundScores =
-    round && round.playerScores.find((s) => s.playerName === showPlayer);
+    round && round.playerScores.find((s: PlayerScore) => s.playerName === showPlayer);
 
   const roundScores = playerRoundScores && playerRoundScores?.scores;
 
@@ -43,8 +62,8 @@ const RoundStatus = (props: Props) => {
             roundScores &&
             [[0, 0]].concat(
               roundScores
-                .filter((s) => s.strokes !== 0)
-                .map((s) => {
+                .filter((s: Score) => s.strokes !== 0)
+                .map((s: Score) => {
                   total += s.relativeToPar;
                   return [s.hole.number, total];
                 })
@@ -53,7 +72,7 @@ const RoundStatus = (props: Props) => {
         {
           label: "Average Progression",
           data: [[0, 0]].concat(
-            playerStats.averagePrediction.map((s, i) => [i + 1, s])
+            playerStats.averagePrediction.map((s: number, i: number) => [i + 1, s])
           ),
         },
       ]

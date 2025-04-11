@@ -130,16 +130,6 @@ namespace Web.Rounds
             return Ok(await _mediator.Send(new GetPlayersCourseStatsQuery { RoundId = roundId }));
         }
 
-        [HttpGet("active/time-projection")]
-        public async Task<ActionResult<RoundTimeProjection>> GetActiveRoundTimeProjection()
-        {
-            var result = await _mediator.Send(new GetActiveRoundTimeProjectionQuery());
-            
-            if (result == null) return NotFound("No active round found");
-            
-            return Ok(result);
-        }
-
         [HttpGet("{roundId}/pace-data")]
         public async Task<IActionResult> GetRoundPaceData(Guid roundId)
         {

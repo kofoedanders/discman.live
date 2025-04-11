@@ -1,10 +1,10 @@
 import React from "react";
 import colors from "../../colors";
-import { PaceData, PaceState } from "../../store/Rounds";
+import { PaceData, CurrentPace } from "../../store/Rounds";
 
 interface RoundPaceDialogProps {
   paceData: PaceData;
-  currentPace: PaceState;
+  currentPace: CurrentPace;
   username: string;
   onClose: () => void;
 }
