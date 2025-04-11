@@ -128,6 +128,19 @@ export interface HoleTimeEstimate {
   averageMinutesToComplete: number;
 }
 
+export interface PaceData {
+  playerAverages: Record<string, number[]>;
+  courseAverage: number[];
+  groupAdjustedPace: number[];
+}
+
+export interface PaceState {
+  estimatedFinishTime?: Date;
+  minutesPerHole?: number;
+  isAhead?: boolean;
+  completedHoles?: number;
+}
+
 export interface RoundsState {
   rounds: Round[];
   round: Round | null;
@@ -137,6 +150,8 @@ export interface RoundsState {
   finishedRoundStats: UserStats[];
   editHole: boolean;
   roundTimeProjection: RoundTimeProjection | null;
+  paceData?: PaceData;
+  currentPace?: PaceState;
 }
 
 //Actions
@@ -240,6 +255,15 @@ export interface SetEditHoleAction {
   editHole: boolean;
 }
 
+export interface SetPaceDataAction {
+  type: "SET_PACE_DATA";
+  paceData: PaceData;
+}
+
+export interface UpdateCurrentPaceAction {
+  type: "UPDATE_CURRENT_PACE";
+}
+
 export type KnownAction =
   | FetchRoundsSuccessAction
   | FetchRoundSuccessAction
@@ -261,7 +285,9 @@ export type KnownAction =
   | SetEditHoleAction
   | GoToNextPersonalHoleAction
   | FetchTimeProjectionSuccessAction
-  | CallHistoryMethodAction;
+  | CallHistoryMethodAction
+  | SetPaceDataAction
+  | UpdateCurrentPaceAction;
 
 const fetchRound = (
   roundId: string,
@@ -309,6 +335,8 @@ const initialState: RoundsState = {
   finishedRoundStats: [],
   editHole: false,
   roundTimeProjection: null,
+  paceData: undefined,
+  currentPace: undefined,
 };
 
 export const actionCreators = {
@@ -675,20 +703,21 @@ export const actionCreators = {
           );
         });
     },
-  setScore:
-    (score: number, strokes: StrokeOutcome[]): AppThunkAction<KnownAction> =>
+  setScore: (score: number, strokes: StrokeOutcome[]): AppThunkAction<KnownAction> =>
     (dispatch, getState) => {
       const appState = getState();
-      const loggedInUser = appState?.user?.user;
-
+      const loggedInUser = appState.user?.userDetails || null;
+      const holeIndex = appState.rounds?.activeHoleIndex || 0;
       const round = appState.rounds?.round;
-      const holeIndex = appState.rounds?.activeHoleIndex;
-      if (!loggedInUser || !round || holeIndex === undefined || holeIndex < 0)
+
+      if (!loggedInUser || !round || !appState.user?.user?.token) {
         return;
+      }
 
       const playerScores = round.playerScores.find(
         (p) => p.playerName === loggedInUser.username
       );
+
       const holeScore = playerScores && playerScores.scores[holeIndex];
       if (holeScore && holeScore.strokes !== 0) {
         const goOn = window.confirm(
@@ -701,7 +730,7 @@ export const actionCreators = {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${loggedInUser.token}`,
+          Authorization: `Bearer ${appState.user.user.token}`,
         },
         body: JSON.stringify({
           holeIndex: holeIndex,
@@ -710,24 +739,22 @@ export const actionCreators = {
           username: loggedInUser.username,
         }),
       })
-        .then((res) => {
-          if (res.status === 401) {
-            UserActions.logout()(dispatch);
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
           }
-          if (!res.ok) throw new Error(`${res.status} - ${res.statusText}`);
-          return res;
+          throw new Error("Failed to update score");
         })
-        .then((response) => response.json() as Promise<Round>)
-        .then((data) => {
+        .then((round) => {
           dispatch({
             type: "SCORE_UPDATED_SUCCESS",
-            round: data,
+            round: round,
             username: loggedInUser.username,
           });
         })
         .catch((err: Error) => {
           notificationActions.showNotification(
-            `Set score failed: ${err.message}`,
+            `Failed to update score: ${err.message}`,
             "error",
             dispatch
           );
@@ -738,6 +765,7 @@ export const actionCreators = {
     (dispatch, getState) => {
       const appState = getState();
       const loggedInUser = appState?.user?.user;
+
       const roundId = appState.rounds?.round?.id;
       if (!loggedInUser || !roundId) return;
 
@@ -846,7 +874,120 @@ export const actionCreators = {
           username: loggedInUser.username,
         });
     },
+  fetchPaceData: (roundId: string): AppThunkAction<KnownAction> =>
+    async (dispatch, getState) => {
+      try {
+        const appState = getState();
+        if (!appState.user?.user?.token) return;
+        
+        const res = await fetch(`/api/rounds/${roundId}/pace-data`, {
+          headers: {
+            "Authorization": `Bearer ${appState.user.user.token}`
+          }
+        });
+        const data = await res.json();
+        dispatch({ type: "SET_PACE_DATA", paceData: data });
+      } catch (err) {
+        console.error("Error loading pace data:", err);
+      }
+    },
 };
+
+// Helper function to calculate pace data for a round with consistent logic
+function calculatePaceForRound(round: Round, paceData: PaceData): {
+  currentAvg: number;
+  minutesPerHole: number;
+  isAhead: boolean;
+  completedHoles: number;
+  estimatedFinishTime: Date;
+} {
+  // Calculate completed holes
+  const completedHoles = round.playerScores
+    .reduce((acc: HoleScore[], p: PlayerScore) => acc.concat(p.scores), [] as HoleScore[])
+    .filter((s: HoleScore) => s.strokes > 0).length;
+
+  // Get the player count 
+  const playerCount = round.playerScores.length;
+  
+  // Use groupAdjustedPace if available, otherwise fall back to previous calculation
+  let currentAvg;
+  if (paceData.groupAdjustedPace && paceData.groupAdjustedPace.length > completedHoles) {
+    // Use the group-adjusted pace based on player count
+    currentAvg = paceData.groupAdjustedPace[completedHoles];
+  } else {
+    // Fall back to the old calculation method
+    const activePlayers = round.playerScores.map((p: PlayerScore) => p.playerName);
+    const averages = activePlayers.map((player: string) => 
+      paceData.playerAverages[player]?.[completedHoles] ?? 
+      paceData.courseAverage[completedHoles]
+    );
+    currentAvg = averages.reduce((sum: number, avg: number) => sum + avg, 0) / averages.length;
+  }
+  
+  const historicalAvg = paceData.courseAverage[completedHoles];
+
+  // Calculate actual time spent on the round so far
+  const startTime = new Date(round.startTime);
+  const currentTime = new Date();
+  const actualMinutesSpent = (currentTime.getTime() - startTime.getTime()) / 60000;
+  
+  // Calculate expected time based on completed holes and historical data
+  const expectedMinutesForCompletedHoles = completedHoles * historicalAvg;
+  
+  // Determine if we're ahead or behind by comparing actual time to expected time
+  const isAhead = actualMinutesSpent < expectedMinutesForCompletedHoles;
+  
+  // Calculate minutes per hole, handling the case where no holes are completed
+  const minutesPerHole = completedHoles > 0 
+    ? actualMinutesSpent / completedHoles 
+    : currentAvg; // Use estimated average if no holes completed
+
+  // Calculate estimated finish time using individual hole averages
+  let estimatedMinutesRemaining = 0;
+  
+  // Get hole-by-hole averages from the group-adjusted pace data
+  if (paceData.groupAdjustedPace) {
+    // Start from the next hole and sum up the averages for all remaining holes
+    for (let holeIndex = completedHoles; holeIndex < Math.min(18, paceData.groupAdjustedPace.length); holeIndex++) {
+      estimatedMinutesRemaining += paceData.groupAdjustedPace[holeIndex];
+    }
+  } else {
+    // Fallback to using course averages per hole if group-adjusted pace is not available
+    for (let holeIndex = completedHoles; holeIndex < Math.min(18, paceData.courseAverage.length); holeIndex++) {
+      estimatedMinutesRemaining += paceData.courseAverage[holeIndex];
+    }
+  }
+  
+  // If we don't have enough data for all 18 holes, extrapolate the remaining time
+  if (completedHoles < 18 && (paceData.groupAdjustedPace?.length < 18 || paceData.courseAverage.length < 18)) {
+    const remainingHoles = 18 - Math.max(completedHoles, 
+      Math.max(paceData.groupAdjustedPace?.length || 0, paceData.courseAverage.length));
+    estimatedMinutesRemaining += remainingHoles * currentAvg;
+  }
+
+  const estimatedFinishTime = new Date(Date.now() + estimatedMinutesRemaining * 60000);
+
+  console.log('Pace Calculation:', {
+    completedHoles,
+    playerCount,
+    currentAvg,
+    historicalAvg,
+    actualMinutesSpent,
+    expectedMinutesForCompletedHoles,
+    minutesPerHole,
+    estimatedMinutesRemaining,
+    usingIndividualHoleAverages: true,
+    estimatedFinishTime: estimatedFinishTime.toISOString()
+  });
+
+  return {
+    currentAvg,
+    minutesPerHole,
+    isAhead,
+    completedHoles,
+    estimatedFinishTime
+  };
+}
 
 //wait for all to score
 const getNextUncompletedHole = (round: Round, user: string) => {
@@ -906,13 +1047,27 @@ export const reducer: Reducer<RoundsState> = (
         ...state,
         round: action.round,
       };
-    case "SCORE_UPDATED_SUCCESS":
+    case "SCORE_UPDATED_SUCCESS": {
+      // Calculate new pace data if we have pace data and a round
+      if (state.paceData && action.round) {
+        const paceData = calculatePaceForRound(action.round, state.paceData);
+        return {
+          ...state,
+          round: action.round,
+          activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+          editHole: false,
+          currentPace: paceData
+        };
+      }
+
+      // If we don't have pace data, just update the round
       return {
         ...state,
         round: action.round,
         activeHoleIndex: getNextUncompletedHole(action.round, action.username),
         editHole: false,
       };
+    }
     case "NEW_ROUND_CREATED":
       return {
         ...state,
@@ -955,6 +1110,22 @@ export const reducer: Reducer<RoundsState> = (
           ? getNextPlayerHole(state.round, action.username)
           : state.activeHoleIndex,
       };
+    case "SET_PACE_DATA": {
+      if (!state.round) return { ...state, paceData: action.paceData };
+
+      // Calculate initial pace when we first get pace data
+      const paceData = calculatePaceForRound(state.round, action.paceData);
+      return { 
+        ...state, 
+        paceData: action.paceData,
+        currentPace: paceData
+      };
+    }
+
+    case "UPDATE_CURRENT_PACE": {
+      // This is just a placeholder action for future use
+      return state;
+    }
     default:
       return state;
   }

@@ -139,6 +139,16 @@ namespace Web.Rounds
             
             return Ok(result);
         }
+
+        [HttpGet("{roundId}/pace-data")]
+        public async Task<IActionResult> GetRoundPaceData(Guid roundId)
+        {
+            var result = await _mediator.Send(new GetRoundPaceDataQuery { RoundId = roundId });
+            
+            if (result == null) return NotFound();
+            
+            return Ok(result);
+        }
     }
 
     public class SaveCourseRequest

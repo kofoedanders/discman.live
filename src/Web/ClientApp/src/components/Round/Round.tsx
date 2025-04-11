@@ -16,6 +16,7 @@ import SignRound from "./SignRound";
 import HoleStatus from "./HoleStatus";
 import RoundTimeProjection from "./RoundTimeProjection";
 import RoundTimeProjectionDialog from "./RoundTimeProjectionDialog";
+import RoundPaceDialog from "./RoundPaceDialog";
 
 const mapState = (state: ApplicationState) => {
   return {
@@ -27,6 +28,13 @@ const mapState = (state: ApplicationState) => {
     finishedRoundStats: state.rounds?.finishedRoundStats || [],
     editHole: state.rounds?.editHole,
     roundTimeProjection: state.rounds?.roundTimeProjection,
+    // Create new object references to ensure component updates
+    paceData: state.rounds?.paceData ? { ...state.rounds.paceData } : undefined,
+    currentPace: state.rounds?.currentPace ? {
+      ...state.rounds.currentPace,
+      estimatedFinishTime: state.rounds.currentPace.estimatedFinishTime ? 
+        new Date(state.rounds.currentPace.estimatedFinishTime) : undefined
+    } : undefined,
   };
 };
 
@@ -55,6 +63,8 @@ const toDateString = (date: Date) => {
 
 const RoundComponent = (props: Props) => {
   const [showTimeProjectionDialog, setShowTimeProjectionDialog] = useState(false);
+  const [showPaceDialog, setShowPaceDialog] = useState(false);
+  const [localPaceState, setLocalPaceState] = useState<RoundsStore.PaceState | undefined>(props.currentPace);
   const {
     round,
     activeHoleIndex,
@@ -69,6 +79,9 @@ const RoundComponent = (props: Props) => {
     playersStats,
     fetchActiveRoundTimeProjection,
     roundTimeProjection,
+    fetchPaceData,
+    currentPace,
+    paceData,
   } = props;
   let { roundId } = useParams<{ roundId: string }>();
   const roundCompleted = round?.isCompleted;
@@ -78,11 +91,26 @@ const RoundComponent = (props: Props) => {
     fetchStatsOnCourse(roundId);
     roundCompleted && fetchUserStats(roundId);
     
-    // Fetch time projection data for active rounds
+    // Fetch time projection and pace data for active rounds
     if (!roundCompleted) {
-      props.fetchActiveRoundTimeProjection();
+      fetchActiveRoundTimeProjection();
+      fetchPaceData(roundId);
     }
-  }, [fetchRound, fetchStatsOnCourse, fetchUserStats, roundCompleted, roundId, props.fetchActiveRoundTimeProjection]);
+  }, [roundId, roundCompleted, fetchRound, fetchStatsOnCourse, fetchUserStats, fetchActiveRoundTimeProjection, fetchPaceData]);
+
+  useEffect(() => {
+    if (currentPace) {
+      setLocalPaceState({...currentPace, 
+        estimatedFinishTime: currentPace.estimatedFinishTime ? new Date(currentPace.estimatedFinishTime) : undefined
+      });
+    }
+  }, [currentPace]);
+
+  useEffect(() => {
+    if (localPaceState && localPaceState.estimatedFinishTime) {
+      setShowPaceDialog(showPaceDialog);
+    }
+  }, [localPaceState]);
 
   const allScoresSet = round?.playerScores.every((p) =>
     p.scores.every((s) => s.strokes !== 0)
@@ -92,6 +120,11 @@ const RoundComponent = (props: Props) => {
   const isPartOfRound = round?.playerScores.some(
     (s) => s.playerName === username
   );
+
+  // Helper function to format time for display
+  const formatTime = (date: Date): string => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div
@@ -113,18 +146,26 @@ const RoundComponent = (props: Props) => {
           </div>
         </div>
         <div className="level-item has-text-centered">
-          {!roundCompleted && roundTimeProjection && (
+          {!roundCompleted && (
             <div 
               className="is-size-7 has-text-grey" 
               style={{ cursor: 'pointer' }}
-              onClick={() => setShowTimeProjectionDialog(true)}
+              onClick={() => localPaceState && paceData ? setShowPaceDialog(true) : setShowTimeProjectionDialog(true)}
             >
               <span className="icon is-small mr-1">
                 <i className="fas fa-clock"></i>
               </span>
-              {new Date(roundTimeProjection.estimatedFinishTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              {' '}
-              ({Math.floor(roundTimeProjection.estimatedMinutesRemaining / 60)}h {Math.round(roundTimeProjection.estimatedMinutesRemaining % 60)}m)
+              {/* Show the estimated finish time from either source, with preference for currentPace */}
+              {localPaceState?.estimatedFinishTime 
+                ? formatTime(localPaceState.estimatedFinishTime)
+                : roundTimeProjection 
+                  ? formatTime(new Date(roundTimeProjection.estimatedFinishTime))
+                  : 'Calculating...'}
+              {localPaceState?.isAhead !== undefined && (
+                <span className={localPaceState.isAhead ? 'has-text-success ml-1' : 'has-text-danger ml-1'}>
+                  <i className={`fas fa-${localPaceState.isAhead ? 'arrow-down' : 'arrow-up'}`}></i>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -205,6 +246,14 @@ const RoundComponent = (props: Props) => {
         <RoundTimeProjectionDialog
           timeProjection={roundTimeProjection}
           onClose={() => setShowTimeProjectionDialog(false)}
+        />
+      )}
+      {showPaceDialog && paceData && localPaceState && (
+        <RoundPaceDialog
+          paceData={paceData}
+          currentPace={localPaceState}
+          username={username || ""}
+          onClose={() => setShowPaceDialog(false)}
         />
       )}
     </div>
