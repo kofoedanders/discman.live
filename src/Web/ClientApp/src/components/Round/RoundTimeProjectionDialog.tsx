@@ -7,7 +7,8 @@ interface RoundTimeProjectionDialogProps {
   onClose: () => void;
 }
 
-const formatTime = (date: Date): string => {
+const formatTime = (date: Date | null): string => {
+  if (!date) return "Unknown";
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
@@ -21,11 +22,57 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
   currentPace, 
   onClose 
 }) => {
+  // If we don't have a valid estimated finish time, show a message
+  if (!currentPace.estimatedFinishTime) {
+    return (
+      <div className="modal is-active">
+        <div className="modal-background" onClick={onClose}></div>
+        <div className="modal-card">
+          <header 
+            className="modal-card-head" 
+            style={{ backgroundColor: colors.background }}
+          >
+            <p className="modal-card-title">Round Time Projection</p>
+            <button 
+              className="delete" 
+              aria-label="close" 
+              onClick={onClose}
+            ></button>
+          </header>
+          <section 
+            className="modal-card-body" 
+            style={{ backgroundColor: colors.background }}
+          >
+            <div className="content has-text-centered">
+              <p>Insufficient data to estimate finish time.</p>
+              <p>This can happen when playing on a new course or with limited historical data.</p>
+            </div>
+          </section>
+          <footer 
+            className="modal-card-foot" 
+            style={{ backgroundColor: colors.background, justifyContent: 'center' }}
+          >
+            <button 
+              className="button" 
+              style={{ backgroundColor: colors.button }}
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </footer>
+        </div>
+      </div>
+    );
+  }
+  
   // Calculate estimated total time based on pace data
-  const totalHoles = 18; // Assuming standard round length
-  const totalEstimatedMinutes = currentPace.minutesPerHole * totalHoles;
-  const estimatedMinutesRemaining = currentPace.minutesPerHole * (totalHoles - currentPace.completedHoles);
-  const elapsedMinutes = totalEstimatedMinutes - estimatedMinutesRemaining;
+  const startTime = new Date(currentPace.estimatedFinishTime.getTime());
+  startTime.setMinutes(startTime.getMinutes() - currentPace.minutesPerHole * (18 - currentPace.completedHoles));
+  
+  // Calculate elapsed and remaining time in minutes
+  const currentTime = new Date();
+  const elapsedMinutes = Math.max(0, (currentTime.getTime() - startTime.getTime()) / 60000);
+  const estimatedMinutesRemaining = Math.max(0, (currentPace.estimatedFinishTime.getTime() - currentTime.getTime()) / 60000);
   
   return (
     <div className="modal is-active">

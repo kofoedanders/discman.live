@@ -12,7 +12,8 @@ const RoundTimeProjection: React.FC<RoundTimeProjectionProps> = ({
   currentPace
 }) => {
   // Format time as HH:MM
-  const formatTime = (date: Date): string => {
+  const formatTime = (date: Date | null): string => {
+    if (!date) return "Unknown";
     return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -29,6 +30,11 @@ const RoundTimeProjection: React.FC<RoundTimeProjectionProps> = ({
     isAhead,
     completedHoles
   } = currentPace;
+
+  // If we don't have estimation data, don't show the component
+  if (!estimatedFinishTime) {
+    return null;
+  }
 
   // Calculate estimated total time
   const totalHoles = 18; // Assuming standard round

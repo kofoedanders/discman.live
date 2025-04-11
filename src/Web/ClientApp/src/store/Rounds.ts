@@ -113,7 +113,7 @@ export interface PlayerSignature {
 }
 
 export interface CurrentPace {
-  estimatedFinishTime: Date;
+  estimatedFinishTime: Date | null;
   minutesPerHole: number;
   isAhead: boolean;
   completedHoles: number;
@@ -526,7 +526,7 @@ export const actionCreators = {
       hub.state !== signalR.HubConnectionState.Connected &&
       fetchRound(activeRound, appState.user.user, dispatch);
   },
-  dissconnectHub: (): AppThunkAction<KnownAction> => (dispatch, getState) => {
+  dissconnectHub: (): AppThunkAction<KnownAction> => (dispatch) => {
     dispatch({ type: "DISCONNECT_TO_HUB" });
   },
   newRound:
@@ -609,7 +609,7 @@ export const actionCreators = {
             throw new Error(`${response.status} - ${response.statusText}`);
           return response.json() as Promise<Round>;
         })
-        .then((data) => {})
+        .then(() => {})
         .catch((err: Error) => {
           notificationActions.showNotification(
             `Add hole failed: ${err.message}`,
@@ -643,7 +643,7 @@ export const actionCreators = {
           if (!res.ok) throw new Error(`${res.status} - ${res.statusText}`);
           return res;
         })
-        .then((response) => {
+        .then(() => {
           dispatch(push("/"));
           dispatch({ type: "ROUND_WAS_DELETED", roundId });
         })
@@ -797,7 +797,7 @@ export const actionCreators = {
           if (!res.ok) throw new Error(`${res.status} - ${res.statusText}`);
           return res;
         })
-        .then((response) => {})
+        .then(() => {})
         .catch((err: Error) => {
           notificationActions.showNotification(
             `Set scoring mode failed: ${err.message}`,
@@ -912,85 +912,101 @@ function calculatePaceForRound(round: Round, paceData: PaceData): {
   minutesPerHole: number;
   isAhead: boolean;
   completedHoles: number;
-  estimatedFinishTime: Date;
+  estimatedFinishTime: Date | null;
 } {
   // Calculate completed holes
   const completedHoles = round.playerScores
     .reduce((acc: HoleScore[], p: PlayerScore) => acc.concat(p.scores), [] as HoleScore[])
     .filter((s: HoleScore) => s.strokes > 0).length;
 
-  // Get the player count 
-  const playerCount = round.playerScores.length;
-  
-  // Use groupAdjustedPace if available, otherwise fall back to previous calculation
-  let currentAvg;
-  if (paceData.groupAdjustedPace && paceData.groupAdjustedPace.length > completedHoles) {
-    // Use the group-adjusted pace based on player count
-    currentAvg = paceData.groupAdjustedPace[completedHoles];
-  } else {
-    // Fall back to the old calculation method
-    const activePlayers = round.playerScores.map((p: PlayerScore) => p.playerName);
-    const averages = activePlayers.map((player: string) => 
-      paceData.playerAverages[player]?.[completedHoles] ?? 
-      paceData.courseAverage[completedHoles]
-    );
-    currentAvg = averages.reduce((sum: number, avg: number) => sum + avg, 0) / averages.length;
-  }
-  
-  const historicalAvg = paceData.courseAverage[completedHoles];
+  console.log("Completed holes:", completedHoles);
 
+  const totalHoles = round.playerScores[0].scores.length;
+  
   // Calculate actual time spent on the round so far
   const startTime = new Date(round.startTime);
   const currentTime = new Date();
   const actualMinutesSpent = (currentTime.getTime() - startTime.getTime()) / 60000;
   
-  // Calculate expected time based on completed holes and historical data
-  const expectedMinutesForCompletedHoles = completedHoles * historicalAvg;
+  // Get the appropriate pace data source
+  const paceSource = paceData.groupAdjustedPace && paceData.groupAdjustedPace.length > 0 
+    ? paceData.groupAdjustedPace 
+    : paceData.courseAverage;
+    
+  // If we have no pace data, return null for estimatedFinishTime
+  if (!paceSource || paceSource.length === 0) {
+    return {
+      currentAvg: 0,
+      minutesPerHole: completedHoles > 0 ? actualMinutesSpent / completedHoles : 0,
+      isAhead: false,
+      completedHoles,
+      estimatedFinishTime: null
+    };
+  }
   
-  // Determine if we're ahead or behind by comparing actual time to expected time
-  const isAhead = actualMinutesSpent < expectedMinutesForCompletedHoles;
+  // Calculate the historical average time per hole based on completed holes
+  let historicalTimeForCompletedHoles = 0;
+  for (let i = 0; i < Math.min(completedHoles, paceSource.length); i++) {
+    historicalTimeForCompletedHoles += paceSource[i] || 0;
+  }
   
-  // Calculate minutes per hole, handling the case where no holes are completed
+  // Determine if player is ahead or behind pace
+  const isAhead = completedHoles > 0 && actualMinutesSpent < historicalTimeForCompletedHoles;
+  
+  // Calculate minutes per hole based on actual play
   const minutesPerHole = completedHoles > 0 
     ? actualMinutesSpent / completedHoles 
-    : currentAvg; // Use estimated average if no holes completed
-
-  // Calculate estimated finish time using individual hole averages
+    : 0;
+  
+  // Calculate the expected time for remaining holes - simple sum of averages
   let estimatedMinutesRemaining = 0;
   
-  // Get hole-by-hole averages from the group-adjusted pace data
-  if (paceData.groupAdjustedPace) {
-    // Start from the next hole and sum up the averages for all remaining holes
-    for (let holeIndex = completedHoles; holeIndex < Math.min(18, paceData.groupAdjustedPace.length); holeIndex++) {
-      estimatedMinutesRemaining += paceData.groupAdjustedPace[holeIndex];
-    }
-  } else {
-    // Fallback to using course averages per hole if group-adjusted pace is not available
-    for (let holeIndex = completedHoles; holeIndex < Math.min(18, paceData.courseAverage.length); holeIndex++) {
-      estimatedMinutesRemaining += paceData.courseAverage[holeIndex];
-    }
-  }
+  // Check if we have data for all remaining holes
+  const allRemainingHolesHaveData = completedHoles + (totalHoles - completedHoles) <= paceSource.length;
   
-  // If we don't have enough data for all 18 holes, extrapolate the remaining time
-  if (completedHoles < 18 && (paceData.groupAdjustedPace?.length < 18 || paceData.courseAverage.length < 18)) {
-    const remainingHoles = 18 - Math.max(completedHoles, 
-      Math.max(paceData.groupAdjustedPace?.length || 0, paceData.courseAverage.length));
-    estimatedMinutesRemaining += remainingHoles * currentAvg;
+  // Only calculate if we have data for all remaining holes
+  if (allRemainingHolesHaveData) {
+    // Sum up the averages for each remaining hole
+    for (let i = completedHoles; i < totalHoles; i++) {
+      if (i < paceSource.length) {
+        estimatedMinutesRemaining += paceSource[i] || 0;
+      }
+    }
+
+
+    console.log("paceSource" , JSON.stringify(paceSource));
+    estimatedMinutesRemaining = paceSource.slice(completedHoles).reduce((sum, time) => sum + (time || 0), 0);
+
+    console.log("Estimated minutes remaining:", estimatedMinutesRemaining);
+    
+    // Calculate estimated finish time
+    const estimatedFinishTime = new Date(currentTime.getTime() + estimatedMinutesRemaining * 60000);
+    
+    // Get current hole's average time for return value
+    const currentHoleIndex = Math.min(completedHoles, paceSource.length - 1);
+    const currentAvg = paceSource[currentHoleIndex] || 0;
+    
+    return {
+      currentAvg,
+      minutesPerHole,
+      isAhead,
+      completedHoles,
+      estimatedFinishTime
+    };
+  } else {
+    // If we don't have data for all remaining holes, return null for estimatedFinishTime
+    return {
+      currentAvg: 0,
+      minutesPerHole,
+      isAhead,
+      completedHoles,
+      estimatedFinishTime: null
+    };
   }
-
-  const estimatedFinishTime = new Date(Date.now() + estimatedMinutesRemaining * 60000);
-
-  return {
-    currentAvg,
-    minutesPerHole,
-    isAhead,
-    completedHoles,
-    estimatedFinishTime
-  };
 }
 
 //wait for all to score
-const getNextUncompletedHole = (round: Round, user: string) => {
+const getNextUncompletedHole = (round: Round) => {
   const activeHole = round.playerScores
     .map((p) => p.scores.find((s) => s.strokes === 0))
     .sort((a, b) => {
@@ -1040,7 +1056,7 @@ export const reducer: Reducer<RoundsState> = (
       return {
         ...state,
         round: action.round,
-        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+        activeHoleIndex: getNextUncompletedHole(action.round),
       };
     case "ROUND_WAS_UPDATED":
       return {
@@ -1054,7 +1070,7 @@ export const reducer: Reducer<RoundsState> = (
         return {
           ...state,
           round: action.round,
-          activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+          activeHoleIndex: getNextUncompletedHole(action.round),
           editHole: false,
           currentPace: paceData
         };
@@ -1064,7 +1080,7 @@ export const reducer: Reducer<RoundsState> = (
       return {
         ...state,
         round: action.round,
-        activeHoleIndex: getNextUncompletedHole(action.round, action.username),
+        activeHoleIndex: getNextUncompletedHole(action.round),
         editHole: false,
       };
     }
@@ -1107,6 +1123,14 @@ export const reducer: Reducer<RoundsState> = (
         ...state, 
         paceData: action.paceData,
         currentPace: paceData
+      };
+    }
+
+    case "GOTO_NEXT_PERSONAL_HOLE": {
+      if (!state.round) return state;
+      return {
+        ...state,
+        activeHoleIndex: getNextPlayerHole(state.round, action.username)
       };
     }
 
