@@ -79,6 +79,7 @@ public class AppFixture
     [NUnit.Framework.OneTimeTearDown]
     public async Task OneTimeTearDown()
     {
+        Serilog.Log.CloseAndFlush();
         HttpClient?.Dispose();
         _factory?.Dispose();
 
