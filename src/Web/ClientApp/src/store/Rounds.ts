@@ -1063,6 +1063,11 @@ export const reducer: Reducer<RoundsState> = (
         ...state,
         round: action.round,
       };
+    case "ROUND_WAS_COMPLETED":
+      return {
+        ...state,
+        round: state.round ? { ...state.round, isCompleted: true } : state.round,
+      };
     case "SCORE_UPDATED_SUCCESS": {
       // Calculate new pace data if we have pace data and a round
       if (state.paceData && action.round) {
