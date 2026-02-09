@@ -2,8 +2,7 @@ name: "CodeQL"
 
 #Run CodeQL scan every Friday at 8:30 AM
 on:
-  schedule:
-    - cron: "30 8 * * 5"
+  workflow_dispatch:
 
 jobs:
   analyze:
