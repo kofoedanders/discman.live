@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -131,6 +132,14 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
                     d.ImplementationType == workerType);
                 if (descriptor != null) services.Remove(descriptor);
             }
+
+            // Override SPA static files root to serve the pre-built React app.
+            // Startup.cs configures RootPath = "wwwroot" which is empty in dev;
+            // the CRA build output lives in ClientApp/build.
+            services.AddSpaStaticFiles(configuration =>
+            {
+                configuration.RootPath = "ClientApp/build";
+            });
         });
     }
 
