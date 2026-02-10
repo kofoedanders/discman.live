@@ -21,9 +21,20 @@ namespace Web.Rounds.Queries
     /// </summary>
     public class RoundPaceData
     {
-        public Dictionary<string, double[]> PlayerAverages { get; set; }
-        public double[] CourseAverage { get; set; }
-        public double[] GroupAdjustedPace { get; set; }
+        public double AverageCourseDurationMinutes { get; set; }
+        public double AdjustedDurationMinutes { get; set; }
+
+        /// <summary>Baseline: 3 players = 1.0</summary>
+        public double PlayerCountFactor { get; set; }
+
+        /// <summary>1.0 = average speed, >1.0 = slower, &lt;1.0 = faster</summary>
+        public double CardSpeedFactor { get; set; }
+
+        public int SampleCount { get; set; }
+        public int TotalHoles { get; set; }
+
+        /// <summary>Per-player factors: >1.0 = slower than course avg, &lt;1.0 = faster</summary>
+        public Dictionary<string, double> PlayerFactors { get; set; } = new();
     }
 
     /// <summary>
@@ -32,10 +43,11 @@ namespace Web.Rounds.Queries
     public class GetRoundPaceDataQueryHandler : IRequestHandler<GetRoundPaceDataQuery, RoundPaceData>
     {
         private readonly IDocumentSession _session;
-        
+
+        private const int MinSampleSize = 3;
 
         // Player count pace factors (data-driven from analysis of all completed rounds)
-        private static readonly Dictionary<int, double> PlayerCountFactors = new Dictionary<int, double>
+        private static readonly Dictionary<int, double> PlayerCountFactors = new()
         {
             { 1, 0.85 },
             { 2, 0.92 },
@@ -54,107 +66,106 @@ namespace Web.Rounds.Queries
         {
             var round = await _session.Query<Round>()
                 .SingleOrDefaultAsync(r => r.Id == request.RoundId, token: cancellationToken);
-            
+
             if (round == null) return null;
+
+            var totalHoles = round.PlayerScores.FirstOrDefault()?.Scores.Count ?? 18;
 
             var historicalRounds = await _session.Query<Round>()
                 .Where(r => r.CourseId == round.CourseId)
+                .Where(r => r.CourseLayout == round.CourseLayout)
                 .Where(r => r.IsCompleted)
-                .OrderByDescending(r => r.CompletedAt)
-                .Take(20)
+                .Where(r => r.CompletedAt != default)
+                .Where(r => r.StartTime != default)
                 .ToListAsync(cancellationToken);
 
-            var playerAverages = round.PlayerScores
-                .Select(p => p.PlayerName)
-                .Distinct()
-                .ToDictionary(
-                    player => player,
-                    player => CalculatePlayerAverages(historicalRounds, player)
-                );
+            var validRounds = historicalRounds
+                .Where(r => (r.CompletedAt - r.StartTime).TotalMinutes >= 30)
+                .Where(r => (r.CompletedAt - r.StartTime).TotalHours < 5)
+                .OrderByDescending(r => r.CompletedAt)
+                .Take(50)
+                .ToList();
 
-            var courseAverages = CalculateCourseAverages(historicalRounds);
+            var averageCourseDuration = validRounds.Count >= MinSampleSize
+                ? validRounds.Average(r => (r.CompletedAt - r.StartTime).TotalMinutes)
+                : 0;
 
-            var groupAdjustedPace = CalculateGroupAdjustedPace(courseAverages, round.PlayerScores.Count);
+            var playerCount = round.PlayerScores.Count;
+            var playerCountFactor = GetPlayerCountFactor(playerCount);
+
+            var playerNames = round.PlayerScores.Select(p => p.PlayerName).Distinct().ToList();
+            var playerFactors = CalculatePlayerFactors(validRounds, playerNames);
+
+            var cardSpeedFactor = playerFactors.Count > 0
+                ? playerFactors.Values.Average()
+                : 1.0;
+
+            // adjustedDuration = base * playerCountFactor * cardSpeedFactor
+            var adjustedDuration = averageCourseDuration > 0
+                ? averageCourseDuration * playerCountFactor * cardSpeedFactor
+                : 0;
 
             return new RoundPaceData
             {
-                PlayerAverages = playerAverages,
-                CourseAverage = courseAverages,
-                GroupAdjustedPace = groupAdjustedPace
+                AverageCourseDurationMinutes = Math.Round(averageCourseDuration, 1),
+                AdjustedDurationMinutes = Math.Round(adjustedDuration, 1),
+                PlayerCountFactor = Math.Round(playerCountFactor, 2),
+                CardSpeedFactor = Math.Round(cardSpeedFactor, 2),
+                SampleCount = validRounds.Count,
+                TotalHoles = totalHoles,
+                PlayerFactors = playerFactors.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => Math.Round(kvp.Value, 2)
+                )
             };
         }
 
-        private static double[] CalculatePlayerAverages(IReadOnlyList<Round> rounds, string playerName)
+        private static double GetPlayerCountFactor(int playerCount)
         {
-            var holeData = new (double Sum, int Count)[18];
-            
-            foreach (var round in rounds)
+            if (PlayerCountFactors.TryGetValue(playerCount, out var factor))
+                return factor;
+
+            // Extrapolate for >6 players: +0.06 per additional player beyond 6
+            if (playerCount > 6)
+                return 1.18 + (playerCount - 6) * 0.06;
+
+            return 1.0;
+        }
+
+        private static Dictionary<string, double> CalculatePlayerFactors(
+            IReadOnlyList<Round> validRounds,
+            IReadOnlyList<string> playerNames)
+        {
+            if (validRounds.Count < MinSampleSize)
+                return playerNames.ToDictionary(p => p, _ => 1.0);
+
+            var courseAvgDuration = validRounds.Average(r => (r.CompletedAt - r.StartTime).TotalMinutes);
+
+            if (courseAvgDuration <= 0)
+                return playerNames.ToDictionary(p => p, _ => 1.0);
+
+            var result = new Dictionary<string, double>();
+
+            foreach (var player in playerNames)
             {
-                var scores = round.PlayerScores
-                    .FirstOrDefault(p => p.PlayerName == playerName)?
-                    .Scores
-                    .Where(s => s.RegisteredAt != default)
-                    .OrderBy(s => s.Hole.Number)
+                var playerRounds = validRounds
+                    .Where(r => r.PlayerScores.Any(ps => ps.PlayerName == player))
                     .ToList();
 
-                if (scores?.Count > 1)
+                if (playerRounds.Count >= MinSampleSize)
                 {
-                    for (var i = 1; i < scores.Count; i++)
-                    {
-                        var holeIndex = scores[i].Hole.Number - 1;
-                        var minutes = (scores[i].RegisteredAt - scores[i-1].RegisteredAt).TotalMinutes;
-                        
-                        if (minutes is >= 1 and <= 20)
-                        {
-                            holeData[holeIndex].Sum += minutes;
-                            holeData[holeIndex].Count++;
-                        }
-                    }
+                    var playerAvgDuration = playerRounds
+                        .Average(r => (r.CompletedAt - r.StartTime).TotalMinutes);
+
+                    result[player] = playerAvgDuration / courseAvgDuration;
+                }
+                else
+                {
+                    result[player] = 1.0;
                 }
             }
 
-            return holeData.Select(x => x.Count > 0 ? x.Sum / x.Count : 4.0).ToArray();
-        }
-
-        private static double[] CalculateCourseAverages(IReadOnlyList<Round> rounds)
-        {
-            var holeData = new (double Sum, int Count)[18];
-            
-            foreach (var round in rounds)
-            {
-                var allScores = round.PlayerScores
-                    .SelectMany(p => p.Scores)
-                    .Where(s => s.RegisteredAt != default)
-                    .OrderBy(s => s.Hole.Number)
-                    .ToList();
-
-                if (allScores.Count > 1)
-                {
-                    for (var i = 1; i < allScores.Count; i++)
-                    {
-                        var holeIndex = allScores[i].Hole.Number - 1;
-                        var minutes = (allScores[i].RegisteredAt - allScores[i-1].RegisteredAt).TotalMinutes;
-                        
-                        if (minutes is >= 1 and <= 20)
-                        {
-                            holeData[holeIndex].Sum += minutes;
-                            holeData[holeIndex].Count++;
-                        }
-                    }
-                }
-            }
-
-            return holeData.Select(x => x.Count > 0 ? x.Sum / x.Count : 4.0).ToArray();
-        }
-
-        private static double[] CalculateGroupAdjustedPace(double[] courseAverages, int playerCount)
-        {
-            if (!PlayerCountFactors.TryGetValue(playerCount, out var factor))
-            {
-                factor = 1.0; // default to baseline factor
-            }
-
-            return courseAverages.Select(avg => avg * factor).ToArray();
+            return result;
         }
     }
 }
