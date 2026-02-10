@@ -29,7 +29,7 @@ const mapState = (state: ApplicationState) => {
     currentPace: state.rounds?.currentPace ? {
       ...state.rounds.currentPace,
       estimatedFinishTime: state.rounds.currentPace.estimatedFinishTime ? 
-        new Date(state.rounds.currentPace.estimatedFinishTime) : undefined
+        new Date(state.rounds.currentPace.estimatedFinishTime) : null
     } : undefined,
     paceData: state.rounds?.paceData ? { ...state.rounds.paceData } : undefined,
   };
@@ -97,7 +97,7 @@ const RoundComponent = (props: Props) => {
         ...props.currentPace,
         estimatedFinishTime: props.currentPace.estimatedFinishTime 
           ? new Date(props.currentPace.estimatedFinishTime) 
-          : new Date() // Fallback to current time
+          : null
       });
     }
   }, [props.currentPace]);

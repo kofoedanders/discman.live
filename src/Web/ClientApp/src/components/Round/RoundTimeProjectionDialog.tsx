@@ -65,14 +65,9 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
     );
   }
   
-  // Calculate estimated total time based on pace data
-  const startTime = new Date(currentPace.estimatedFinishTime.getTime());
-  startTime.setMinutes(startTime.getMinutes() - currentPace.minutesPerHole * (18 - currentPace.completedHoles));
-  
-  // Calculate elapsed and remaining time in minutes
-  const currentTime = new Date();
-  const elapsedMinutes = Math.max(0, (currentTime.getTime() - startTime.getTime()) / 60000);
-  const estimatedMinutesRemaining = Math.max(0, (currentPace.estimatedFinishTime.getTime() - currentTime.getTime()) / 60000);
+  // Get elapsed and remaining time from pace data
+  const elapsedMinutes = currentPace.elapsedMinutes;
+  const estimatedMinutesRemaining = Math.max(0, currentPace.estimatedTotalMinutes - currentPace.elapsedMinutes);
   
   return (
     <div className="modal is-active">
@@ -118,7 +113,7 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
               </div>
               <div className="column has-text-centered">
                 <p className="heading">Completed</p>
-                <p className="title is-5">{currentPace.completedHoles} / 18 holes</p>
+                <p className="title is-5">{currentPace.completedHoles} / {currentPace.totalHoles} holes</p>
               </div>
             </div>
             
@@ -129,6 +124,23 @@ const RoundTimeProjectionDialog: React.FC<RoundTimeProjectionDialogProps> = ({
                   : 'Behind Average Pace'}
               </span>
             </div>
+
+            {(currentPace.cardSpeedFactor !== 1.0 || Object.keys(currentPace.playerFactors).length > 0) && (
+              <div className="has-text-centered mt-4">
+                {currentPace.cardSpeedFactor !== 1.0 && (
+                  <p className="has-text-grey is-size-7">
+                    Card Speed Factor: {currentPace.cardSpeedFactor.toFixed(2)}x
+                  </p>
+                )}
+                {Object.keys(currentPace.playerFactors).length > 0 && (
+                  <p className="has-text-grey is-size-7 mt-1">
+                    {Object.entries(currentPace.playerFactors)
+                      .map(([name, factor]) => `${name}: ${factor.toFixed(2)}x`)
+                      .join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </section>
         <footer 
