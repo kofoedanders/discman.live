@@ -54,11 +54,11 @@ export interface YearSummary {
   hoursPlayed: number;
   roundsPlayed: number;
   totalScore: number;
-  bestCardmate: string;
+  bestCardmate: string | null;
   bestCardmateAverageScore: number;
-  worstCardmate: string;
+  worstCardmate: string | null;
   worstCardmateAverageScore: number;
-  mostPlayedCourse: string;
+  mostPlayedCourse: string | null;
   mostPlayedCourseRoundsCount: number;
 }
 
@@ -444,9 +444,8 @@ export const actionCreators = {
         dispatch({ type: "SET_SETTINGS_INIT_SUCCESS" });
       })
       .catch((err: Error) => {
-        dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
         notificationActions.showNotification(
-          `Fetch year summary failed: ${err.message}`,
+          `Set settings init failed: ${err.message}`,
           "error",
           dispatch
         );
@@ -917,8 +916,6 @@ export const actionCreators = {
     if (!appState.user || !appState.user.loggedIn || !appState.user.user)
       return;
 
-    dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
-
     fetch(`api/users/${username}/yearsummary/${year}`, {
       method: "GET",
       headers: {
@@ -939,8 +936,9 @@ export const actionCreators = {
         });
       })
       .catch((err: Error) => {
+        dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
         notificationActions.showNotification(
-          `Fetch user details failed: ${err.message}`,
+          `Fetch year summary failed: ${err.message}`,
           "error",
           dispatch
         );
