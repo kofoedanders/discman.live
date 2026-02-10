@@ -131,6 +131,10 @@ export interface FetchUserYearSummarySuccessAction {
   yearSummary: YearSummary;
 }
 
+export interface ClearUserYearSummaryAction {
+  type: "CLEAR_USER_YEAR_SUMMARY";
+}
+
 export interface SpectatorLeftAction {
   type: "SPEC_LEFT";
   roundId: string;
@@ -262,6 +266,7 @@ export type KnownAction =
   | ClearFeedAction
   | NewRoundCreatedAction
   | FetchUserYearSummarySuccessAction
+  | ClearUserYearSummaryAction
   | RoundWasDeletedAction
   | SpectatorLeftAction;
 
@@ -439,8 +444,9 @@ export const actionCreators = {
         dispatch({ type: "SET_SETTINGS_INIT_SUCCESS" });
       })
       .catch((err: Error) => {
+        dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
         notificationActions.showNotification(
-          `Set settings init failed: ${err.message}`,
+          `Fetch year summary failed: ${err.message}`,
           "error",
           dispatch
         );
@@ -911,6 +917,8 @@ export const actionCreators = {
     if (!appState.user || !appState.user.loggedIn || !appState.user.user)
       return;
 
+    dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
+
     fetch(`api/users/${username}/yearsummary/${year}`, {
       method: "GET",
       headers: {
@@ -1167,6 +1175,11 @@ export const reducer: Reducer<UserState> = (
       return {
         ...state,
         userYearSummary: action.yearSummary,
+      };
+    case "CLEAR_USER_YEAR_SUMMARY":
+      return {
+        ...state,
+        userYearSummary: null,
       };
     case "FETCH_USER_DETAILS_SUCCESS":
       return {

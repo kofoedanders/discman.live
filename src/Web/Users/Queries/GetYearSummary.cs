@@ -31,10 +31,10 @@ namespace Web.Users.Queries
                 .Query<Round>()
                 .Where(r => !r.Deleted)
                 .Where(r => r.PlayerScores.Any(s => s.PlayerName == request.Username))
-                .Where(r => r.StartTime > new DateTime(request.Year, 1, 1) && r.StartTime < new DateTime(request.Year + 1, 1, 1))
+                .Where(r => r.StartTime >= new DateTime(request.Year, 1, 1) && r.StartTime < new DateTime(request.Year + 1, 1, 1))
                 .ToListAsync(token: cancellationToken);
 
-            var playerRounds = rounds.Where(r => r.PlayerScores.Any(p => p.PlayerName == request.Username)).ToList();
+            var playerRounds = rounds.ToList();
 
             if (!playerRounds.Any())
             {
@@ -52,7 +52,6 @@ namespace Web.Users.Queries
                 };
             }
 
-            var holesWithDetails = rounds.PlayerHolesWithDetails(request.Username);
             var totalScore = playerRounds.Sum(r => r.PlayerScore(request.Username));
 
             var cardmateAverages = CalculateCardmateAverages(playerRounds, request.Username);
@@ -98,7 +97,7 @@ namespace Web.Users.Queries
 
             foreach (var cardmate in cardmates.Keys.ToList()) 
             {
-                var roundsWithCardmate = playerRounds.Where(r => r.PlayerScores.Any(p => p.PlayerName == cardmate));
+                var roundsWithCardmate = playerRounds.Where(r => r.IsCompleted && r.PlayerScores.Any(p => p.PlayerName == cardmate));
                 if (roundsWithCardmate.Count() < 5)
                 {
                     cardmates.Remove(cardmate);

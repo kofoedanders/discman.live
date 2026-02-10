@@ -102,13 +102,15 @@ namespace Web.Rounds
                 .Where(s => s.PlayerName == player)
                 .SelectMany(s => s.Scores);
 
-            var playerHcpStrokes = PlayerScores.Single(p => p.PlayerName == player).NumberOfHcpStrokes;
+            var playerHcpEntry = PlayerScores.SingleOrDefault(p => p.PlayerName == player);
+            var playerHcpStrokes = playerHcpEntry?.NumberOfHcpStrokes ?? 0;
 
             return playerScores.Sum(q => q.RelativeToPar) - playerHcpStrokes;
         }
 
         public double RoundAverageScore()
         {
+            if (PlayerScores == null || PlayerScores.Count == 0) return 0;
             return PlayerScores.Sum(ps => ps.Scores.Sum(s => s.RelativeToPar)) / (double)PlayerScores.Count;
         }
 
@@ -188,7 +190,7 @@ namespace Web.Rounds
             Strokes = strokes;
             var relativeToPar = strokes - Hole.Par;
             RelativeToPar = relativeToPar;
-            StrokeSpecs = strokeOutcomes?.Select(outcome => new StrokeSpec { Outcome = Enum.Parse<StrokeSpec.StrokeOutcome>(outcome) }).ToList();
+            StrokeSpecs = strokeOutcomes?.Select(outcome => new StrokeSpec { Outcome = Enum.Parse<StrokeSpec.StrokeOutcome>(outcome, true) }).ToList();
             if (StrokeSpecs != null && StrokeSpecs.Any()) StrokeSpecs.Last().PutDistance = putDistance;
             RegisteredAt = DateTime.Now;
             return relativeToPar;

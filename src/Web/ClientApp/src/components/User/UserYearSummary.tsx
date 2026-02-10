@@ -3,7 +3,6 @@ import { connect, ConnectedProps } from "react-redux";
 import { ApplicationState } from "../../store";
 import * as UserStore from "../../store/User";
 import { useParams, useHistory } from "react-router";
-import { Link } from "react-router-dom";
 
 // Map Redux state to component props
 const mapState = (state: ApplicationState) => {
@@ -18,36 +17,10 @@ const connector = connect(mapState, UserStore.actionCreators);
 type PropsFromRedux = ConnectedProps<typeof connector>;
 type Props = PropsFromRedux & {};
 
-// Extend the YearSummary interface to include courseScores
-interface CourseScore {
-  averageScore: number;
-  rounds: number;
-}
-
-interface CourseScores {
-  [course: string]: CourseScore;
-}
-
-// Use the same type as in the store but extend it with our additional properties
-interface ExtendedYearSummary {
-  roundsPlayed: number;
-  totalScore: number;
-  hoursPlayed: number;
-  mostPlayedCourse: string; // In the store this is a number, but we need it as a string
-  mostPlayedCourseRoundsCount: number;
-  bestCardmate: string;
-  bestCardmateAverageScore: number;
-  worstCardmate: string;
-  worstCardmateAverageScore: number;
-  scoreImprovement?: number;
-  courseScores?: CourseScores;
-}
-
 interface PreviousYearSummary {
   roundsPlayed: number;
   totalScore: number;
   hoursPlayed: number;
-  courseScores?: CourseScores;
 }
 
 const UserYearSummary = (props: Props) => {
@@ -76,9 +49,11 @@ const UserYearSummary = (props: Props) => {
   ).reverse(); // Most recent years first
   
   const [previousYearSummary, setPreviousYearSummary] = useState<PreviousYearSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     if (username) {
+      setIsLoading(true);
       fetchUserYearSummary(username, year);
       
       // Fetch previous year data for comparison if not the first year
@@ -113,65 +88,27 @@ const UserYearSummary = (props: Props) => {
     }
   }, [username, year, props.user?.user?.token, fetchUserYearSummary]);
   
+  useEffect(() => {
+    setIsLoading(false);
+  }, [props.user?.userYearSummary]);
+  
   const handleYearChange = (selectedYear: number) => {
     history.push(`/user/${username}/yearsummary/${selectedYear}`);
   };
   
-  const yearSummary = props.user?.userYearSummary as unknown as ExtendedYearSummary;
+  const yearSummary = props.user?.userYearSummary;
+  
+  const roundsPlayed = yearSummary?.roundsPlayed ?? 0;
   
   // Calculate average round score
-  const averageRoundScore = yearSummary?.roundsPlayed > 0
-    ? (yearSummary.totalScore / yearSummary.roundsPlayed).toFixed(1)
+  const averageRoundScore = roundsPlayed > 0
+    ? ((yearSummary?.totalScore ?? 0) / roundsPlayed).toFixed(1)
     : "0.0";
   
   // Calculate average round time in minutes
-  const averageRoundTime = yearSummary?.roundsPlayed > 0
-    ? Math.round((yearSummary.hoursPlayed * 60) / yearSummary.roundsPlayed)
+  const averageRoundTime = roundsPlayed > 0
+    ? Math.round(((yearSummary?.hoursPlayed ?? 0) * 60) / roundsPlayed)
     : 0;
-  
-  // Calculate score improvement from first half to second half of the year
-  const scoreImprovement = yearSummary?.scoreImprovement
-    ? yearSummary.scoreImprovement.toFixed(1)
-    : null;
-
-  const getCourseImprovement = () => {
-    if (!yearSummary || !previousYearSummary) return null;
-    
-    // Find common courses between years
-    const commonCourses: Array<{
-      name: string;
-      improvement: number;
-      currentAvg: number;
-      prevAvg: number;
-      rounds: number;
-    }> = [];
-    
-    if (yearSummary.courseScores && previousYearSummary.courseScores) {
-      for (const course in yearSummary.courseScores) {
-        if (previousYearSummary.courseScores[course]) {
-          const currentAvg = yearSummary.courseScores[course].averageScore;
-          const prevAvg = previousYearSummary.courseScores[course].averageScore;
-          const roundsCurrentYear = yearSummary.courseScores[course].rounds;
-          const roundsPrevYear = previousYearSummary.courseScores[course].rounds;
-          
-          if (roundsCurrentYear >= 3 && roundsPrevYear >= 3) {
-            commonCourses.push({
-              name: course,
-              improvement: prevAvg - currentAvg,
-              currentAvg,
-              prevAvg,
-              rounds: roundsCurrentYear
-            });
-          }
-        }
-      }
-    }
-    
-    // Sort by improvement (best first)
-    return commonCourses.sort((a, b) => b.improvement - a.improvement);
-  };
-
-  const courseImprovements = getCourseImprovement();
 
   // Calculate overall stats comparison
   const getOverallComparison = () => {
@@ -240,7 +177,14 @@ const UserYearSummary = (props: Props) => {
           </div>
         </div>
         
-        {yearSummary && yearSummary.roundsPlayed > 0 ? (
+        {isLoading ? (
+          <div className="has-text-centered py-4">
+            <span className="icon is-medium">
+              <i className="fas fa-spinner fa-pulse"></i>
+            </span>
+            <p className="is-size-7 mt-1">Loading summary...</p>
+          </div>
+        ) : yearSummary && yearSummary.roundsPlayed > 0 ? (
           <div>
             {/* Main Stats Section - Compact row */}
             <div className="columns is-mobile is-multiline is-variable is-0 mb-2">
@@ -304,19 +248,6 @@ const UserYearSummary = (props: Props) => {
                         </span>
                         <strong>Avg Time:</strong> {averageRoundTime}m
                       </div>
-                      
-                      {scoreImprovement && (
-                        <div>
-                          <span className="icon is-small has-text-primary">
-                            <i className="fas fa-chart-line"></i>
-                          </span>
-                          <strong>Improvement:</strong>
-                          <span className={parseFloat(scoreImprovement) < 0 ? "has-text-success" : "has-text-danger"}>
-                            {parseFloat(scoreImprovement) < 0 ? " " : " +"}
-                            {scoreImprovement}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -414,25 +345,6 @@ const UserYearSummary = (props: Props) => {
                           {overallComparison.timeChange} min
                         </span>
                       </div>
-                      
-                      {courseImprovements && courseImprovements.length > 0 && (
-                        <div className="mt-2">
-                          <div className="is-flex is-justify-content-space-between">
-                            <strong>Course Improvements:</strong>
-                          </div>
-                          {courseImprovements.slice(0, 2).map((course, index) => (
-                            <div key={index} className="is-flex is-justify-content-space-between">
-                              <span className="is-ellipsis" style={{maxWidth: "60%", overflow: "hidden", textOverflow: "ellipsis"}}>
-                                {course.name}:
-                              </span>
-                              <span className={course.improvement >= 0 ? "has-text-success" : "has-text-danger"}>
-                                {course.improvement > 0 ? "-" : "+"}
-                                {Math.abs(course.improvement).toFixed(1)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
