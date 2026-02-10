@@ -5,6 +5,7 @@ import { push, CallHistoryMethodAction } from "connected-react-router";
 import { hub } from "./configureStore";
 import * as signalR from "@microsoft/signalr";
 import { actionCreators as notificationActions } from "./Notifications";
+import { calculatePace } from "../utils/paceUtils";
 import {
   actionCreators as UserActions,
   UserAchievement,
@@ -117,12 +118,21 @@ export interface CurrentPace {
   minutesPerHole: number;
   isAhead: boolean;
   completedHoles: number;
+  totalHoles: number;
+  elapsedMinutes: number;
+  estimatedTotalMinutes: number;
+  cardSpeedFactor: number;
+  playerFactors: { [playerName: string]: number };
 }
 
 export interface PaceData {
-  playerAverages: { [playerName: string]: number[] };
-  courseAverage: number[];
-  groupAdjustedPace: number[];
+  averageCourseDurationMinutes: number;
+  adjustedDurationMinutes: number;
+  playerCountFactor: number;
+  cardSpeedFactor: number;
+  sampleCount: number;
+  totalHoles: number;
+  playerFactors: { [playerName: string]: number };
 }
 
 export interface RoundsState {
@@ -906,103 +916,21 @@ export const actionCreators = {
     },
 };
 
-// Helper function to calculate pace data for a round with consistent logic
-function calculatePaceForRound(round: Round, paceData: PaceData): {
-  currentAvg: number;
-  minutesPerHole: number;
-  isAhead: boolean;
-  completedHoles: number;
-  estimatedFinishTime: Date | null;
-} {
-  // Calculate completed holes
-  const completedHoles = round.playerScores
-    .reduce((acc: HoleScore[], p: PlayerScore) => acc.concat(p.scores), [] as HoleScore[])
-    .filter((s: HoleScore) => s.strokes > 0).length;
+function calculatePaceForRound(round: Round, paceData: PaceData): CurrentPace {
+  const scoredHoleNumbers = new Set<number>();
+  round.playerScores.forEach((p: PlayerScore) => {
+    p.scores.forEach((s: HoleScore) => {
+      if (s.strokes > 0) scoredHoleNumbers.add(s.hole.number);
+    });
+  });
+  const completedHoles = scoredHoleNumbers.size;
+  const totalHoles = paceData.totalHoles || round.playerScores[0]?.scores.length || 18;
 
-  console.log("Completed holes:", completedHoles);
-
-  const totalHoles = round.playerScores[0].scores.length;
-  
-  // Calculate actual time spent on the round so far
   const startTime = new Date(round.startTime);
-  const currentTime = new Date();
-  const actualMinutesSpent = (currentTime.getTime() - startTime.getTime()) / 60000;
-  
-  // Get the appropriate pace data source
-  const paceSource = paceData.groupAdjustedPace && paceData.groupAdjustedPace.length > 0 
-    ? paceData.groupAdjustedPace 
-    : paceData.courseAverage;
-    
-  // If we have no pace data, return null for estimatedFinishTime
-  if (!paceSource || paceSource.length === 0) {
-    return {
-      currentAvg: 0,
-      minutesPerHole: completedHoles > 0 ? actualMinutesSpent / completedHoles : 0,
-      isAhead: false,
-      completedHoles,
-      estimatedFinishTime: null
-    };
-  }
-  
-  // Calculate the historical average time per hole based on completed holes
-  let historicalTimeForCompletedHoles = 0;
-  for (let i = 0; i < Math.min(completedHoles, paceSource.length); i++) {
-    historicalTimeForCompletedHoles += paceSource[i] || 0;
-  }
-  
-  // Determine if player is ahead or behind pace
-  const isAhead = completedHoles > 0 && actualMinutesSpent < historicalTimeForCompletedHoles;
-  
-  // Calculate minutes per hole based on actual play
-  const minutesPerHole = completedHoles > 0 
-    ? actualMinutesSpent / completedHoles 
-    : 0;
-  
-  // Calculate the expected time for remaining holes - simple sum of averages
-  let estimatedMinutesRemaining = 0;
-  
-  // Check if we have data for all remaining holes
-  const allRemainingHolesHaveData = completedHoles + (totalHoles - completedHoles) <= paceSource.length;
-  
-  // Only calculate if we have data for all remaining holes
-  if (allRemainingHolesHaveData) {
-    // Sum up the averages for each remaining hole
-    for (let i = completedHoles; i < totalHoles; i++) {
-      if (i < paceSource.length) {
-        estimatedMinutesRemaining += paceSource[i] || 0;
-      }
-    }
+  const now = new Date();
+  const elapsedMinutes = Math.max(0, (now.getTime() - startTime.getTime()) / 60000);
 
-
-    console.log("paceSource" , JSON.stringify(paceSource));
-    estimatedMinutesRemaining = paceSource.slice(completedHoles).reduce((sum, time) => sum + (time || 0), 0);
-
-    console.log("Estimated minutes remaining:", estimatedMinutesRemaining);
-    
-    // Calculate estimated finish time
-    const estimatedFinishTime = new Date(currentTime.getTime() + estimatedMinutesRemaining * 60000);
-    
-    // Get current hole's average time for return value
-    const currentHoleIndex = Math.min(completedHoles, paceSource.length - 1);
-    const currentAvg = paceSource[currentHoleIndex] || 0;
-    
-    return {
-      currentAvg,
-      minutesPerHole,
-      isAhead,
-      completedHoles,
-      estimatedFinishTime
-    };
-  } else {
-    // If we don't have data for all remaining holes, return null for estimatedFinishTime
-    return {
-      currentAvg: 0,
-      minutesPerHole,
-      isAhead,
-      completedHoles,
-      estimatedFinishTime: null
-    };
-  }
+  return calculatePace(completedHoles, totalHoles, elapsedMinutes, startTime, paceData);
 }
 
 //wait for all to score
