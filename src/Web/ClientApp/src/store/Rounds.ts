@@ -908,6 +908,7 @@ export const actionCreators = {
             "Authorization": `Bearer ${appState.user.user.token}`
           }
         });
+        if (!res.ok) return;
         const data = await res.json();
         dispatch({ type: "SET_PACE_DATA", paceData: data });
       } catch (err) {
@@ -980,12 +981,18 @@ export const reducer: Reducer<RoundsState> = (
         ...state,
         rounds: action.rounds,
       };
-    case "FETCH_ROUND_SUCCEED":
+    case "FETCH_ROUND_SUCCEED": {
+      // Recalculate pace if paceData already arrived before the round
+      const updatedPace = state.paceData && action.round
+        ? calculatePaceForRound(action.round, state.paceData)
+        : state.currentPace;
       return {
         ...state,
         round: action.round,
         activeHoleIndex: getNextUncompletedHole(action.round),
+        currentPace: updatedPace,
       };
+    }
     case "ROUND_WAS_UPDATED":
       return {
         ...state,

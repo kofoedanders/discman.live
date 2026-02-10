@@ -79,9 +79,12 @@ namespace Web.Rounds.Queries
                 .Where(r => r.StartTime != default)
                 .ToListAsync(cancellationToken);
 
+            var minDurationMinutes = totalHoles * 1.5;
+            var maxDurationMinutes = totalHoles * 15.0;
+
             var validRounds = historicalRounds
-                .Where(r => (r.CompletedAt - r.StartTime).TotalMinutes >= 30)
-                .Where(r => (r.CompletedAt - r.StartTime).TotalHours < 5)
+                .Where(r => (r.CompletedAt - r.StartTime).TotalMinutes >= minDurationMinutes)
+                .Where(r => (r.CompletedAt - r.StartTime).TotalMinutes < maxDurationMinutes)
                 .OrderByDescending(r => r.CompletedAt)
                 .Take(50)
                 .ToList();

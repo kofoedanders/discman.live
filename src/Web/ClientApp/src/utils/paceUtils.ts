@@ -23,7 +23,8 @@ export function calculatePace(
     };
   }
 
-  const progress = totalHoles > 0 ? completedHoles / totalHoles : 0;
+  const clampedHoles = Math.min(completedHoles, totalHoles);
+  const progress = totalHoles > 0 ? Math.min(1, Math.max(0, clampedHoles / totalHoles)) : 0;
 
   const actualProjectedTotal =
     completedHoles > 0

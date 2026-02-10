@@ -57,4 +57,13 @@ describe("calculatePace", () => {
     const result = calculatePace(5, 18, 20, new Date("2023-01-01T10:00:00Z"), paceData);
     expect(result.estimatedFinishTime).toBeNull();
   });
+
+  it("clamps progress when completedHoles exceeds totalHoles", () => {
+    const result = calculatePace(20, 18, 90, new Date("2023-01-01T10:00:00Z"), basePaceData);
+    // progress should be clamped to 1.0, so blend is 100% actual projection
+    const actualProjectedTotal = (90 / 20) * 18;
+    expect(result.estimatedTotalMinutes).toBeCloseTo(actualProjectedTotal, 5);
+    expect(result.completedHoles).toBe(20);
+    expect(result.totalHoles).toBe(18);
+  });
 });

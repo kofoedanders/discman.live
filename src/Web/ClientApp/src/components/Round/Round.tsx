@@ -16,6 +16,7 @@ import SignRound from "./SignRound";
 import HoleStatus from "./HoleStatus";
 import RoundTimeProjectionDialog from "./RoundTimeProjectionDialog";
 import { CurrentPace } from "../../store/Rounds";
+import { calculatePace } from "../../utils/paceUtils";
 
 const mapState = (state: ApplicationState) => {
   return {
@@ -101,6 +102,25 @@ const RoundComponent = (props: Props) => {
       });
     }
   }, [props.currentPace]);
+
+  useEffect(() => {
+    if (!paceData || !round || round.isCompleted) return;
+    const timer = setInterval(() => {
+      const startTime = new Date(round.startTime);
+      const elapsed = Math.max(0, (Date.now() - startTime.getTime()) / 60000);
+      const scoredHoleNumbers = new Set<number>();
+      round.playerScores.forEach(p => {
+        p.scores.forEach(s => {
+          if (s.strokes > 0) scoredHoleNumbers.add(s.hole.number);
+        });
+      });
+      const completedHoles = scoredHoleNumbers.size;
+      const totalHoles = paceData.totalHoles || 18;
+      const updated = calculatePace(completedHoles, totalHoles, elapsed, startTime, paceData);
+      setLocalPaceState(updated);
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [paceData, round]);
 
   const allScoresSet = round?.playerScores.every((p) =>
     p.scores.every((s) => s.strokes !== 0)
