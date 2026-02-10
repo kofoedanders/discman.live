@@ -49,6 +49,7 @@ namespace Web
         {
             var holesPlayed = holes.Count;
             var birdies = holes.Count(s => s.RelativeToPar == -1);
+            if (holesPlayed == 0) return 0;
             return birdies / (double) holesPlayed;
         }
 
@@ -56,6 +57,7 @@ namespace Web
         {
             var strokes = holes.Sum(x => x.StrokeSpecs.Count);
             var obs = holes.Sum(x => x.StrokeSpecs.Count(s => s.Outcome == StrokeSpec.StrokeOutcome.OB));
+            if (strokes == 0) return 0;
             return obs / (double) strokes;
         }
         
@@ -63,6 +65,7 @@ namespace Web
         {
             var holesPlayed = holes.Count;
             var pars = holes.Count(s => s.RelativeToPar == 0);
+            if (holesPlayed == 0) return 0;
             return pars / (double) holesPlayed;
         }
 
@@ -77,16 +80,17 @@ namespace Web
                     .Count(spec => spec.Outcome == StrokeSpec.StrokeOutcome.Rough ||
                                    spec.Outcome == StrokeSpec.StrokeOutcome.OB) > 0) && s.RelativeToPar == 0);
 
-            return holesWithRoughHit != 0 ? scrambles / (double) holesWithRoughHit : 1;
+            return holesWithRoughHit != 0 ? scrambles / (double) holesWithRoughHit : 0;
         }
 
         public static double FairwayRate(this IReadOnlyList<HoleScore> holes)
         {
             var holesPlayed = holes.Count;
             var fairwayOnFirst = holes.Count(s =>
-                s.StrokeSpecs[0].Outcome == StrokeSpec.StrokeOutcome.Fairway ||
+                s.StrokeSpecs != null && s.StrokeSpecs.Count > 0 &&
+                (s.StrokeSpecs[0].Outcome == StrokeSpec.StrokeOutcome.Fairway ||
                 s.StrokeSpecs[0].Outcome == StrokeSpec.StrokeOutcome.Circle1 ||
-                s.StrokeSpecs[0].Outcome == StrokeSpec.StrokeOutcome.Circle2);
+                s.StrokeSpecs[0].Outcome == StrokeSpec.StrokeOutcome.Circle2));
             return holesPlayed != 0 ? fairwayOnFirst / (double) holesPlayed : 0;
         }
 
@@ -117,7 +121,7 @@ namespace Web
                     .Average(s =>
                     {
                         var playerRoundScore = s.PlayerRoundScores.Scores.Sum(x => x.RelativeToPar);
-                        return playerRoundScore - courseAverages[s.CourseName];
+                        return courseAverages.TryGetValue(s.CourseName, out var avg) ? playerRoundScore - avg : playerRoundScore;
                     });
 
                 var playerScores = roundScores.Select(x => x.PlayerRoundScores).ToList();

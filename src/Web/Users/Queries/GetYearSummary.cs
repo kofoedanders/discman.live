@@ -31,21 +31,46 @@ namespace Web.Users.Queries
                 .Query<Round>()
                 .Where(r => !r.Deleted)
                 .Where(r => r.PlayerScores.Any(s => s.PlayerName == request.Username))
-                .Where(r => r.StartTime > new DateTime(request.Year, 1, 1) && r.StartTime < new DateTime(request.Year + 1, 1, 1))
+                .Where(r => r.StartTime >= new DateTime(request.Year, 1, 1) && r.StartTime < new DateTime(request.Year + 1, 1, 1))
                 .ToListAsync(token: cancellationToken);
 
-            var holesWithDetails = rounds.PlayerHolesWithDetails(request.Username);
-            var playerRounds = rounds.Where(r => r.PlayerScores.Any(p => p.PlayerName == request.Username)).ToList();
+            var playerRounds = rounds.ToList();
+
+            if (!playerRounds.Any())
+            {
+                return new UserYearSummary
+                {
+                    HoursPlayed = 0,
+                    RoundsPlayed = 0,
+                    TotalScore = 0,
+                    BestCardmate = null,
+                    BestCardmateAverageScore = 0,
+                    WorstCardmate = null,
+                    WorstCardmateAverageScore = 0,
+                    MostPlayedCourse = null,
+                    MostPlayedCourseRoundsCount = 0,
+                };
+            }
+
             var totalScore = playerRounds.Sum(r => r.PlayerScore(request.Username));
 
             var cardmateAverages = CalculateCardmateAverages(playerRounds, request.Username);
 
-            var bestCardmate = cardmateAverages.OrderBy(c => c.Value).First().Key;
-            var bestCardmateAverageScore = cardmateAverages[bestCardmate];
-            var worstCardmate = cardmateAverages.OrderBy(c => c.Value).Last().Key;
-            var worstCardmateAverageScore = cardmateAverages[worstCardmate];
+            string bestCardmate = null;
+            double bestCardmateAverageScore = 0;
+            string worstCardmate = null;
+            double worstCardmateAverageScore = 0;
 
-            var mostPlayedCourse = playerRounds.GroupBy(r => r.CourseName).OrderByDescending(g => g.Count()).First();
+            if (cardmateAverages.Any())
+            {
+                var ordered = cardmateAverages.OrderBy(c => c.Value).ToList();
+                bestCardmate = ordered.First().Key;
+                bestCardmateAverageScore = ordered.First().Value;
+                worstCardmate = ordered.Last().Key;
+                worstCardmateAverageScore = ordered.Last().Value;
+            }
+
+            var mostPlayedCourse = playerRounds.GroupBy(r => r.CourseName).OrderByDescending(g => g.Count()).FirstOrDefault();
 
 
             return new UserYearSummary
@@ -57,8 +82,8 @@ namespace Web.Users.Queries
                 BestCardmateAverageScore = bestCardmateAverageScore,
                 WorstCardmate = worstCardmate,
                 WorstCardmateAverageScore = worstCardmateAverageScore,
-                MostPlayedCourse = mostPlayedCourse.Key,
-                MostPlayedCourseRoundsCount = mostPlayedCourse.Count(),
+                MostPlayedCourse = mostPlayedCourse?.Key,
+                MostPlayedCourseRoundsCount = mostPlayedCourse?.Count() ?? 0,
             };
         }
 
@@ -72,7 +97,7 @@ namespace Web.Users.Queries
 
             foreach (var cardmate in cardmates.Keys.ToList()) 
             {
-                var roundsWithCardmate = playerRounds.Where(r => r.PlayerScores.Any(p => p.PlayerName == cardmate));
+                var roundsWithCardmate = playerRounds.Where(r => r.IsCompleted && r.PlayerScores.Any(p => p.PlayerName == cardmate));
                 if (roundsWithCardmate.Count() < 5)
                 {
                     cardmates.Remove(cardmate);

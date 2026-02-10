@@ -54,11 +54,11 @@ export interface YearSummary {
   hoursPlayed: number;
   roundsPlayed: number;
   totalScore: number;
-  bestCardmate: string;
+  bestCardmate: string | null;
   bestCardmateAverageScore: number;
-  worstCardmate: string;
+  worstCardmate: string | null;
   worstCardmateAverageScore: number;
-  mostPlayedCourse: number;
+  mostPlayedCourse: string | null;
   mostPlayedCourseRoundsCount: number;
 }
 
@@ -129,6 +129,10 @@ export interface SpectatorJoindAction {
 export interface FetchUserYearSummarySuccessAction {
   type: "FETCH_USER_YEARS_SUMMARY_SUCCESS";
   yearSummary: YearSummary;
+}
+
+export interface ClearUserYearSummaryAction {
+  type: "CLEAR_USER_YEAR_SUMMARY";
 }
 
 export interface SpectatorLeftAction {
@@ -262,6 +266,7 @@ export type KnownAction =
   | ClearFeedAction
   | NewRoundCreatedAction
   | FetchUserYearSummarySuccessAction
+  | ClearUserYearSummaryAction
   | RoundWasDeletedAction
   | SpectatorLeftAction;
 
@@ -931,8 +936,9 @@ export const actionCreators = {
         });
       })
       .catch((err: Error) => {
+        dispatch({ type: "CLEAR_USER_YEAR_SUMMARY" });
         notificationActions.showNotification(
-          `Fetch user details failed: ${err.message}`,
+          `Fetch year summary failed: ${err.message}`,
           "error",
           dispatch
         );
@@ -1167,6 +1173,11 @@ export const reducer: Reducer<UserState> = (
       return {
         ...state,
         userYearSummary: action.yearSummary,
+      };
+    case "CLEAR_USER_YEAR_SUMMARY":
+      return {
+        ...state,
+        userYearSummary: null,
       };
     case "FETCH_USER_DETAILS_SUCCESS":
       return {

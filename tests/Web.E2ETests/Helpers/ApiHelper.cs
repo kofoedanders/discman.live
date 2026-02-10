@@ -18,8 +18,7 @@ public static class ApiHelper
 
     public static HttpClient CreateAuthenticatedClient(string token)
     {
-        var baseAddress = AppFixture.Instance.HttpClient.BaseAddress
-            ?? new Uri(AppFixture.Instance.ServerUrl);
+        var baseAddress = new Uri(AppFixture.Instance.ServerUrl);
         var client = new HttpClient { BaseAddress = baseAddress };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
