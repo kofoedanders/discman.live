@@ -1,3 +1,4 @@
+using System.IO;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -7,12 +8,12 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 class Build : NukeBuild
 {
-    public static int Main() => Execute<Build>(x => x.Compile);
+    public static int Main() => Execute<Build>(x => x.Full);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly string Configuration = IsLocalBuild ? "Debug" : "Release";
 
-    [Solution("Discman.Classic.sln")]
+    [Solution("Discman.Classic.sln", SuppressBuildProjectCheck = true)]
     readonly Solution Solution;
 
     AbsolutePath SourceDirectory => RootDirectory / "src";
@@ -49,6 +50,12 @@ class Build : NukeBuild
     Target BuildFrontend => _ => _
         .Executes(() =>
         {
+            var cacheDirectory = ClientApp / "node_modules" / ".cache";
+            if (Directory.Exists(cacheDirectory))
+            {
+                Directory.Delete(cacheDirectory, recursive: true);
+            }
+
             ProcessTasks.StartProcess("npm", "ci", workingDirectory: ClientApp)
                 .AssertZeroExitCode();
 
