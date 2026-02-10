@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { connect, ConnectedProps } from "react-redux";
 import { ApplicationState } from "../../store";
 import * as UserStore from "../../store/User";
@@ -50,14 +50,11 @@ const UserYearSummary = (props: Props) => {
   
   const [previousYearSummary, setPreviousYearSummary] = useState<PreviousYearSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const hasFetched = useRef(false);
   
   useEffect(() => {
     if (username) {
       setIsLoading(true);
-      hasFetched.current = false;
       fetchUserYearSummary(username, year);
-      hasFetched.current = true;
       
       // Fetch previous year data for comparison if not the first year
       if (year > startYear) {
@@ -91,17 +88,17 @@ const UserYearSummary = (props: Props) => {
     }
   }, [username, year, props.user?.user?.token, fetchUserYearSummary]);
   
+  const yearSummary = props.user?.userYearSummary;
+  
   useEffect(() => {
-    if (hasFetched.current) {
+    if (isLoading && yearSummary != null) {
       setIsLoading(false);
     }
-  }, [props.user?.userYearSummary]);
+  }, [yearSummary, isLoading]);
   
   const handleYearChange = (selectedYear: number) => {
     history.push(`/user/${username}/yearsummary/${selectedYear}`);
   };
-  
-  const yearSummary = props.user?.userYearSummary;
   
   const roundsPlayed = yearSummary?.roundsPlayed ?? 0;
   
