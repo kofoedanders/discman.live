@@ -91,12 +91,21 @@ const UserYearSummary = (props: Props) => {
             Authorization: `Bearer ${props.user?.user?.token}`,
           },
         })
-          .then(response => response.json())
+          .then(response => {
+            if (!response.ok) {
+              setPreviousYearSummary(null);
+              return null;
+            }
+            return response.json();
+          })
           .then(data => {
-            setPreviousYearSummary(data);
+            if (data) {
+              setPreviousYearSummary(data);
+            }
           })
           .catch(error => {
             console.error("Error fetching previous year data:", error);
+            setPreviousYearSummary(null);
           });
       } else {
         setPreviousYearSummary(null);
@@ -244,7 +253,7 @@ const UserYearSummary = (props: Props) => {
               <div className="column is-3-mobile is-narrow px-1">
                 <div className="notification is-info is-light py-2 px-2 mb-0">
                   <p className="heading is-size-7 mb-0">Hours</p>
-                  <p className="title is-4 mb-0">{yearSummary.hoursPlayed.toFixed(1)}</p>
+                  <p className="title is-4 mb-0">{(yearSummary.hoursPlayed ?? 0).toFixed(1)}</p>
                 </div>
               </div>
               <div className="column is-3-mobile is-narrow px-1">
@@ -252,7 +261,7 @@ const UserYearSummary = (props: Props) => {
                   <p className="heading is-size-7 mb-0">Total</p>
                   <p className="title is-4 mb-0">
                     {yearSummary.totalScore > 0 ? "+" : ""}
-                    {yearSummary.totalScore.toFixed(0)}
+                    {(yearSummary.totalScore ?? 0).toFixed(0)}
                   </p>
                 </div>
               </div>
@@ -331,7 +340,7 @@ const UserYearSummary = (props: Props) => {
                           <strong>Best:</strong> {yearSummary.bestCardmate}
                           <span className="tag is-success is-light is-small ml-1">
                             {yearSummary.bestCardmateAverageScore > 0 ? "+" : ""}
-                            {yearSummary.bestCardmateAverageScore.toFixed(1)}
+                            {(yearSummary.bestCardmateAverageScore ?? 0).toFixed(1)}
                           </span>
                         </div>
                         
@@ -342,7 +351,7 @@ const UserYearSummary = (props: Props) => {
                           <strong>Challenging:</strong> {yearSummary.worstCardmate}
                           <span className="tag is-danger is-light is-small ml-1">
                             {yearSummary.worstCardmateAverageScore > 0 ? "+" : ""}
-                            {yearSummary.worstCardmateAverageScore.toFixed(1)}
+                            {(yearSummary.worstCardmateAverageScore ?? 0).toFixed(1)}
                           </span>
                         </div>
                       </div>

@@ -58,7 +58,7 @@ export interface YearSummary {
   bestCardmateAverageScore: number;
   worstCardmate: string;
   worstCardmateAverageScore: number;
-  mostPlayedCourse: number;
+  mostPlayedCourse: string;
   mostPlayedCourseRoundsCount: number;
 }
 
