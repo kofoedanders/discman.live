@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Round, PlayerCourseStats } from "../../store/Rounds";
-import colors, { scoreColorStyle } from "../../colors";
+import colors from "../../colors";
 import HoleScoreIndicator from "./HoleScoreIndicator";
 import SmallInfoWithHeader from "./SmallInfoWithHeader";
 import { emojiDescriptions } from "../../utils/emojiDescriptions";
@@ -21,6 +21,7 @@ const HoleScoreComponent = ({
   setActiveHole,
   playersStats,
 }: ScoreCardProps) => {
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const activePlayerScores = round.playerScores.find(
     (p) => p.playerName === username
   );
@@ -50,8 +51,6 @@ const HoleScoreComponent = ({
   const prevHole = activeHole - 1 > -1 ? courseHoles[activeHole - 1] : null;
 
   const playersToDisplay = round.playerScores; //consider not showing all players
-
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   return (
     <div className="pt-1 pb-0">
