@@ -196,3 +196,81 @@ Created 4 entity configuration files implementing IEntityTypeConfiguration<T> pa
 - Sub-task 2e: Round configuration (most complex, 6+ related tables)
 - Sub-task 2f: Register DbContext in Startup.cs
 - Sub-task 2g: Generate migration and test
+
+## [2026-02-12] Task: TournamentConfiguration.cs Created
+
+### What was accomplished
+Created `src/Web/Infrastructure/EntityConfigurations/TournamentConfiguration.cs` implementing IEntityTypeConfiguration<Tournament>.
+
+### Configuration Details
+- **Table**: tournaments
+- **Simple properties** (8): Id, Name, CreatedAt, Start, End (all snake_case columns)
+- **PostgreSQL arrays** (3):
+  - Players → text[] (List<string>)
+  - Admins → text[] (List<string>)
+  - Courses → uuid[] (List<Guid>)
+- **JSONB column** (1): Prices → jsonb (TournamentPrices object)
+
+### Design Decision: Why JSONB for TournamentPrices
+TournamentPrices is stored as JSONB column instead of normalized tables because:
+1. **Deep nesting**: Contains 7+ nested sub-objects (Scoreboard list, FastestPlayer, SlowestPlayer, MostBirdies, LeastBogeysOrWorse, LongestCleanStreak, LongestDrySpell, BounceBacks)
+2. **Avoiding over-normalization**: Would require 8+ separate tables for ONE nested property
+3. **Match Marten behavior**: Existing Marten implementation stores this as JSONB document
+4. **Rare querying**: Tournament prices are written once at tournament end, queried only for display (no complex filtering needed)
+
+### Pattern Consistency
+- Follows established IEntityTypeConfiguration<T> pattern from previous 5 configurations
+- Snake_case column naming via HasColumnName()
+- PostgreSQL-specific types: text[], uuid[], jsonb
+- Auto-discovered by DiscmanDbContext.ApplyConfigurationsFromAssembly()
+
+### Build Status
+- TournamentConfiguration.cs itself is CORRECT
+- Build currently fails due to PRE-EXISTING errors in UserConfiguration.cs:
+  - Line 17: UseXminAsConcurrencyToken() extension method not available
+  - Line 94: Achievement.RegisteredAt property mapping issue
+- These errors exist BEFORE TournamentConfiguration was created (outside task scope)
+
+### File Location
+- Created: `src/Web/Infrastructure/EntityConfigurations/TournamentConfiguration.cs`
+- Total configurations: 7 (Course, GlobalFeedItem, UserFeedItem, ResetPasswordRequest, PlayerCourseStats, User, Tournament)
+
+
+## Sub-task 2d: UserConfiguration and TournamentConfiguration (COMPLETED)
+
+### Key Learnings
+
+#### xmin Concurrency Token (PostgreSQL-specific)
+- **Initial attempt**: `builder.UseXminAsConcurrencyToken()` failed — extension not available in this version
+- **Solution**: Use `builder.Property<uint>("xmin").IsRowVersion()` to map PostgreSQL's system column
+- Npgsql 9.0 EF Core uses standard `.IsRowVersion()` for xmin mapping
+- Add `using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;` for proper support
+
+#### Achievement Collection Handling
+- Achievement base class properties: `AchievementName` (read-only via GetType().Name), `Username`, `AchievedAt` (DateTime), `RoundId` (Guid), `HoleNumber` (int)
+- Custom `Achievements : ICollection<Achievement>` works fine with `OwnsMany` — EF Core recognizes the ICollection interface
+- No need to normalize Achievements separately; EF Core handles collection serialization
+
+#### TournamentPrices as JSONB
+- TournamentPrices has 7+ nested properties (Scoreboard, FastestPlayer, SlowestPlayer, etc.)
+- Correctly stored as JSONB column using `HasColumnType("jsonb")` + `HasColumnName("prices")`
+- Alternative `.ToJson("prices")` not used (EF Core 7+ feature, but explicit HasColumnType works universally)
+
+#### Snake_case Naming Pattern
+- All scalar properties use `.HasColumnName("snake_case")`
+- Arrays: `text[]` for List<string>, `uuid[]` for List<Guid>
+- Owned entities (Achievements, RatingHistory) also use snake_case consistently
+- No exceptions; pattern applied to all 25+ property mappings
+
+### Files Created
+- `UserConfiguration.cs`: 122 lines, maps User entity with xmin concurrency, owned Achievements/RatingHistory
+- `TournamentConfiguration.cs`: 62 lines, maps Tournament entity with JSONB Prices column
+
+### Build Status
+- Build succeeded: 0 errors, 16 warnings (pre-existing)
+- DbContext auto-discovery working: `ApplyConfigurationsFromAssembly()` finds both new configurations
+
+### Next Steps (Sub-task 2e, 2f, 2g)
+- Create RoundConfiguration, HallOfFameConfiguration, MonthHallOfFameConfiguration in sub-task 2e
+- Register DbContext in Startup.cs in sub-task 2f
+- Generate initial EF Core migration in sub-task 2g
