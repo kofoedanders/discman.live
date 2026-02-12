@@ -74,3 +74,8 @@ All EF Core IEntityTypeConfiguration classes created in `src/Web/Infrastructure/
 - Zero LSP errors
 - `dotnet build` passes with only pre-existing warnings
 - All 8 configurations registered via `ApplyConfigurationsFromAssembly()`
+
+## 2026-02-12 - RoundConfiguration completed
+
+- Implemented nested OwnsMany/OwnsOne chain for Round → PlayerScores → HoleScores → (Hole embedded + StrokeSpecs).
+- Used JSONB for Round.Achievements per requirement; Spectators stored as text[] array.

@@ -54,12 +54,15 @@ namespace Web.Infrastructure.EntityConfigurations
                 .HasColumnName("created_by")
                 .IsRequired();
             
+            builder.Property(r => r.Achievements)
+                .HasColumnName("achievements")
+                .HasColumnType("jsonb");
+            
             builder.Property(r => r.Deleted)
                 .HasColumnName("deleted")
                 .IsRequired();
             
             builder.Ignore(r => r.DurationMinutes);
-            builder.Ignore(r => r.Achievements);
             
             builder.OwnsMany(r => r.Signatures, signature =>
             {

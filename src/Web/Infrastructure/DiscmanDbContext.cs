@@ -27,12 +27,31 @@ namespace Web.Infrastructure
         public DbSet<HallOfFame> HallOfFames { get; set; }
         public DbSet<MonthHallOfFame> MonthHallOfFames { get; set; }
         public DbSet<ResetPasswordRequest> ResetPasswordRequests { get; set; }
-        public DbSet<PlayerCourseStats> PlayerCourseStats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Apply all IEntityTypeConfiguration classes from this assembly
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(DiscmanDbContext).Assembly);
+
+            // Exclude Achievement types from model discovery (they are domain value objects, not entities)
+            modelBuilder.Ignore<Web.Users.Achievement>();
+            modelBuilder.Ignore<Web.Users.RoundAchievement>();
+            modelBuilder.Ignore<Web.Users.UserAchievement>();
+            modelBuilder.Ignore<Web.Users.BogeyFreeRound>();
+            modelBuilder.Ignore<Web.Users.AllPar>();
+            modelBuilder.Ignore<Web.Users.UnderPar>();
+            modelBuilder.Ignore<Web.Users.FiveUnderPar>();
+            modelBuilder.Ignore<Web.Users.TenUnderPar>();
+            modelBuilder.Ignore<Web.Users.StarFrame>();
+            modelBuilder.Ignore<Web.Users.FiveBirdieRound>();
+            modelBuilder.Ignore<Web.Users.ACE>();
+            modelBuilder.Ignore<Web.Users.Turkey>();
+            modelBuilder.Ignore<Web.Users.Eagle>();
+            modelBuilder.Ignore<Web.Users.TenRoundsInAMonth>();
+            modelBuilder.Ignore<Web.Users.TwentyRoundsInAMonth>();
+            modelBuilder.Ignore<Web.Users.PlayEveryDayInAWeek>();
+            modelBuilder.Ignore<Web.Users.OneHundredRounds>();
+            modelBuilder.Ignore<Web.Users.FiveRoundsInADay>();
         }
     }
 }
