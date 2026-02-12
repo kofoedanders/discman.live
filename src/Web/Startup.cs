@@ -58,7 +58,7 @@ namespace Web
             });
 
             services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-            services.AddAutoMapper(Assembly.GetExecutingAssembly());
+            services.AddAutoMapper(cfg => cfg.AddMaps(Assembly.GetExecutingAssembly()));
 
             services.AddControllersWithViews(options => options.Filters.Add(new ApiExceptionFilter()));
             services.AddHttpContextAccessor();
@@ -89,7 +89,7 @@ namespace Web
             services.AddSingleton<CourseStatsCache>();
             services.AddSingleton<PlayerCourseStatsCache>();
 
-            var secret = Configuration.GetValue<string>("TOKEN_SECRET");
+            var secret = Configuration.GetValue<string>("DOTNET_TOKEN_SECRET");
             services.AddAuthentication(x =>
                 {
                     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
