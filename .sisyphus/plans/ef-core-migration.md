@@ -364,7 +364,7 @@ test -x infrastructure/etl/run_etl.sh
 
 ---
 
-- [ ] 2. Create EF Core DbContext, entity configurations, and initial migration
+- [x] 2. Create EF Core DbContext, entity configurations, and initial migration
 
   **What to do**:
   - Add NuGet packages: `Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.EntityFrameworkCore.Design`
