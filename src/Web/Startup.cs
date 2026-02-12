@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -83,6 +84,12 @@ namespace Web
             services.AddSpaStaticFiles(configuration => { configuration.RootPath = "wwwroot"; });
 
             services.ConfigureMarten(Configuration, _env);
+            
+            // EF Core DbContext registration (coexists with Marten during migration)
+            var connectionString = Configuration.GetValue<string>("DOTNET_POSTGRES_CON_STRING");
+            services.AddDbContext<DiscmanDbContext>(options =>
+                options.UseNpgsql(connectionString));
+            
             services.AddSingleton<LeaderboardCache>();
             services.AddSingleton<UserStatsCache>();
             services.AddSingleton<TournamentCache>();
