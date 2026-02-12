@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Web.Courses;
 using Web.Feeds.Domain;
+using Web.Infrastructure.EntityConfigurations;
 using Web.Leaderboard;
 using Web.Rounds;
 using Web.Tournaments.Domain;
@@ -30,7 +31,8 @@ namespace Web.Infrastructure
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Entity configurations will be added in sub-tasks 2c-2e
+            // Apply all IEntityTypeConfiguration classes from this assembly
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(DiscmanDbContext).Assembly);
         }
     }
 }

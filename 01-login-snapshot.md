@@ -1,0 +1,124 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - heading "discman.live" [level=5] [ref=e6]:
+        - link "discman.live" [ref=e7] [cursor=pointer]:
+          - /url: /
+      - generic [ref=e9]:
+        - generic [ref=e16]: 
+        - text:         
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e39]:
+          - heading "↓ Pull down to refresh" [level=3] [ref=e41]
+          - article [ref=e43]:
+            - link [ref=e44] [cursor=pointer]:
+              - /url: /user
+              - generic [ref=e47]: 
+            - generic [ref=e49]:
+              - strong [ref=e50]: reviewtest2
+              - text: 10. february 17:06
+              - link "reviewtest2 started using discman.live - add your friends and start playing!" [ref=e51] [cursor=pointer]:
+                - /url: /user
+                - paragraph [ref=e53]:
+                  - text: reviewtest2 started using
+                  - strong [ref=e54]: discman.live
+                  - text: "- add your friends and start playing!"
+            - generic [ref=e57]: 
+        - button "Add friends" [ref=e60] [cursor=pointer]:
+          - strong [ref=e61]: Add friends
+      - generic [ref=e64]:
+        - banner [ref=e65]:
+          - paragraph [ref=e66]: Info (1 / 1)
+        - generic [ref=e68]:
+          - text: When starting a new round, one player has to create the round, adding all players in the "New Round" dialogue.
+          - text: The new round will apear in all users' feeds and as a green "Live" button on the home page. Click the live button to start registering scores. If you have multiple active rounds, you can find all rounds at your
+          - link "profile page." [ref=e69] [cursor=pointer]:
+            - /url: /user
+          - text: "NB: Each player has to register scores before the hole is \"completed\". You can change your score on the active hole or by choosing a previous hole by clicking the hole number in the score card."
+        - contentinfo [ref=e70]:
+          - button "Close" [ref=e71] [cursor=pointer]
+      - generic [ref=e74]:
+        - banner [ref=e75]:
+          - paragraph [ref=e76]: Settings
+        - generic [ref=e77]:
+          - generic [ref=e78]: Country
+          - combobox [ref=e82] [cursor=pointer]:
+            - option "Select your country"
+            - option "🇳🇴" [selected]
+            - option "🇸🇪"
+            - option "🇺🇸"
+            - option "🇬🇧"
+            - option "🇩🇰"
+            - option "🇫🇮"
+            - option "🏳️‍🌈"
+            - option "️🏴‍☠️"
+            - option "️‍🏴"
+            - option "️🏳️"
+            - option "🏁"
+          - generic [ref=e83]: Emoji
+          - text: Personal emoji, used in scorecards etc.
+          - combobox [ref=e87] [cursor=pointer]:
+            - option "Select your emoji" [selected]
+            - option "🍆"
+            - option "🍅"
+            - option "🍄"
+            - option "🍍"
+            - option "🍎"
+            - option "🍑"
+            - option "🍔"
+            - option "🍗"
+            - option "🦁"
+            - option "⏰"
+            - option "☕"
+            - option "⚽"
+            - option "🉐"
+            - option "🌈"
+            - option "🌚"
+            - option "🌭"
+            - option "🌮"
+            - option "🌯"
+            - option "🌽"
+            - option "🍕"
+            - option "🍩"
+            - option "🍷"
+            - option "🍺"
+            - option "🎩"
+            - option "🏋"
+            - option "🐁"
+            - option "🐉"
+            - option "🐍"
+            - option "👽"
+            - option "👾"
+            - option "💅"
+            - option "💉"
+            - option "💋"
+            - option "💰"
+            - option "🖕"
+            - option "🖖"
+            - option "😾"
+            - option "🚀"
+            - option "🚖"
+            - option "🥚"
+            - option "🍾"
+        - contentinfo [ref=e88]:
+          - button "Finish" [ref=e89] [cursor=pointer]
+    - navigation [ref=e19]:
+      - link " Feed" [ref=e21] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e23]: 
+        - generic [ref=e24]: Feed
+      - button "Play" [ref=e26] [cursor=pointer]:
+        - generic [ref=e28]: 
+        - generic [ref=e29]: Play
+      - link "Leaders" [ref=e31] [cursor=pointer]:
+        - /url: /leaders
+        - generic [ref=e33]: 
+        - generic [ref=e34]: Leaders
+  - iframe [ref=e35]:
+    - generic [ref=f1e2]:
+      - generic [ref=f1e3]: "Compiled with problems:"
+      - button "Dismiss" [ref=f1e4] [cursor=pointer]: ×
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: ERROR
+        - generic [ref=f1e8]: "[eslint] Failed to load config \"react-app\" to extend from. Referenced from: /Users/andkof-priv/code/discman.live/src/Web/ClientApp/package.json"
