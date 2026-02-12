@@ -44,6 +44,9 @@ namespace Web.Leaderboard
     {
         public new Guid Id { get; set; }
 
+        // Parameterless constructor for EF Core
+        private MonthHallOfFame() { }
+
         public MonthHallOfFame(PlayerStats mostBirdies, PlayerStats mostBogies, PlayerStats mostRounds, PlayerStats bestRoundAverage)
         {
             var month = DateTime.Now.Month;
