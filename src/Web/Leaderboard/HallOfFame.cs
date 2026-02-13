@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Marten.Util;
 using Web.Matches;
 
 namespace Web.Leaderboard
@@ -23,7 +22,7 @@ namespace Web.Leaderboard
                 MostBogies = monthHallOfFame.MostBogies;
                 MostRounds = monthHallOfFame.MostRounds;
                 BestRoundAverage = monthHallOfFame.BestRoundAverage;
-                UpdatedAt = DateTime.Now;
+                UpdatedAt = DateTime.UtcNow;
                 return;
             }
 
@@ -36,7 +35,7 @@ namespace Web.Leaderboard
             if (monthHallOfFame.MostBogies.Count > MostBogies.Count) MostBogies = monthHallOfFame.MostBogies;
             if (monthHallOfFame.MostRounds.Count > MostRounds.Count) MostRounds = monthHallOfFame.MostRounds;
             if (monthHallOfFame.BestRoundAverage.RoundAverage < BestRoundAverage.RoundAverage) BestRoundAverage = monthHallOfFame.BestRoundAverage;
-            UpdatedAt = DateTime.Now;
+            UpdatedAt = DateTime.UtcNow;
         }
     }
 
@@ -49,18 +48,18 @@ namespace Web.Leaderboard
 
         public MonthHallOfFame(PlayerStats mostBirdies, PlayerStats mostBogies, PlayerStats mostRounds, PlayerStats bestRoundAverage)
         {
-            var month = DateTime.Now.Month;
-            var year = DateTime.Now.Year;
+            var month = DateTime.UtcNow.Month;
+            var year = DateTime.UtcNow.Year;
 
             Month = month - 1;
             Year = year;
-            UpdatedAt = DateTime.Now;
+            UpdatedAt = DateTime.UtcNow;
             MostBirdies = new MostBirdies
             {
                 Count = mostBirdies.BirdieCount,
                 Username = mostBirdies.Username,
                 PerRound = mostBirdies.BirdieCount / (double) mostBirdies.RoundCount,
-                TimeOfEntry = DateTime.Now,
+                TimeOfEntry = DateTime.UtcNow,
                 NewThisMonth = true
             };
             MostBogies = new MostBogies
@@ -68,21 +67,21 @@ namespace Web.Leaderboard
                 Count = mostBogies.BogeyCount,
                 Username = mostBogies.Username,
                 PerRound = mostBogies.BogeyCount / (double) mostBogies.RoundCount,
-                TimeOfEntry = DateTime.Now,
+                TimeOfEntry = DateTime.UtcNow,
                 NewThisMonth = true
             };
             MostRounds = new MostRounds
             {
                 Count = mostRounds.RoundCount,
                 Username = mostRounds.Username,
-                TimeOfEntry = DateTime.Now,
+                TimeOfEntry = DateTime.UtcNow,
                 NewThisMonth = true
             };
             BestRoundAverage = new BestRoundAverage
             {
                 RoundAverage = bestRoundAverage.AverageHoleScore,
                 Username = bestRoundAverage.Username,
-                TimeOfEntry = DateTime.Now,
+                TimeOfEntry = DateTime.UtcNow,
                 NewThisMonth = true
             };
         }
@@ -118,7 +117,7 @@ namespace Web.Leaderboard
     {
         public string Username { get; set; }
         public DateTime TimeOfEntry { get; set; }
-        public int DaysInHallOfFame => (DateTime.Now - TimeOfEntry.AddDays(-1)).Days;
+        public int DaysInHallOfFame => (DateTime.UtcNow - TimeOfEntry.AddDays(-1)).Days;
         public bool NewThisMonth { get; set; }
     }
 }

@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
-using Marten;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using NServiceBus;
 using Web.Feeds.Domain;
 using Web.Infrastructure;
@@ -11,38 +11,29 @@ namespace Web.Feeds.Handlers
 {
     public class UpdateFeedsOnRoundDeleted : IHandleMessages<RoundWasDeleted>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHubContext<RoundsHub> _roundsHub;
 
-        public UpdateFeedsOnRoundDeleted(IDocumentSession documentSession, IHubContext<RoundsHub> roundsHub)
+        public UpdateFeedsOnRoundDeleted(DiscmanDbContext dbContext, IHubContext<RoundsHub> roundsHub)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _roundsHub = roundsHub;
         }
 
         public async Task Handle(RoundWasDeleted notification, IMessageHandlerContext context)
         {
-            var globalFeedItems = await _documentSession
-                .Query<GlobalFeedItem>()
+            var globalFeedItems = await _dbContext.GlobalFeedItems
                 .Where(x => x.RoundId == notification.RoundId)
-                .ToListAsync();
+                .ToListAsync(context.CancellationToken);
             var globalItemIds = globalFeedItems.Select(item => item.Id).ToArray();
-            var userFeedItems = await _documentSession
-                .Query<UserFeedItem>()
-                .Where(x => x.FeedItemId.IsOneOf(globalItemIds))
-                .ToListAsync();
+            var userFeedItems = await _dbContext.UserFeedItems
+                .Where(x => globalItemIds.Contains(x.FeedItemId))
+                .ToListAsync(context.CancellationToken);
 
-            foreach (var globalFeedItem in globalFeedItems)
-            {
-                _documentSession.Delete(globalFeedItem);
-            }
+            _dbContext.GlobalFeedItems.RemoveRange(globalFeedItems);
+            _dbContext.UserFeedItems.RemoveRange(userFeedItems);
 
-            foreach (var userFeedItem in userFeedItems)
-            {
-                _documentSession.Delete(userFeedItem);
-            }
-
-            await _documentSession.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
     }
 }

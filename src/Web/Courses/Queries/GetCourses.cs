@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
+using Microsoft.EntityFrameworkCore;
 using MediatR;
 using System.Linq;
 using System.Security.Claims;
-using Marten.Util;
 using Microsoft.AspNetCore.Http;
 using Web.Rounds;
 using AutoMapper;
+using Web.Infrastructure;
 
 namespace Web.Courses.Queries
 {
@@ -23,14 +23,14 @@ namespace Web.Courses.Queries
     public class GetCoursesQueryHandler : IRequestHandler<GetCoursesQuery, IReadOnlyList<CourseVm>>
     {
         private readonly IMapper _mapper;
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly CourseStatsCache _courseStatsCache;
 
-        public GetCoursesQueryHandler(IMapper mapper, IDocumentSession documentSession, IHttpContextAccessor httpContextAccessor, CourseStatsCache courseStatsCache)
+        public GetCoursesQueryHandler(IMapper mapper, DiscmanDbContext dbContext, IHttpContextAccessor httpContextAccessor, CourseStatsCache courseStatsCache)
         {
             _mapper = mapper;
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _courseStatsCache = courseStatsCache;
         }
@@ -45,12 +45,11 @@ namespace Web.Courses.Queries
             if (!string.IsNullOrWhiteSpace(request.Filter))
             {
 
-                courses = await _documentSession
-                                .Query<Course>()
+                courses = await _dbContext.Courses
                                 .Where(c => c.Name.Contains(request.Filter, StringComparison.OrdinalIgnoreCase))
                                 .OrderByDescending(c => c.CreatedAt)
                                 .ThenByDescending(c => c.Name)
-                                .ToListAsync(token: cancellationToken);
+                                .ToListAsync(cancellationToken);
             }
             else if (request.Latitude != 0 && request.Longitude != 0)
             {
@@ -58,11 +57,10 @@ namespace Web.Courses.Queries
                 var latLower = request.Latitude - 0.1m;
                 var longUpper = request.Longitude + 0.1m;
                 var longLower = request.Longitude - 0.1m;
-                courses = await _documentSession
-                                    .Query<Course>()
+                courses = await _dbContext.Courses
                                     .Where(c => c.Coordinates.Latitude < latUpper && c.Coordinates.Latitude > latLower)
                                     .Where(c => c.Coordinates.Longitude < longUpper && c.Coordinates.Longitude > longLower)
-                                    .ToListAsync(token: cancellationToken);
+                                    .ToListAsync(cancellationToken);
 
 
                 courses = courses
@@ -71,21 +69,19 @@ namespace Web.Courses.Queries
             }
             else
             {
-                var rounds = await _documentSession
-                    .Query<Round>()
+                var rounds = await _dbContext.Rounds
                     .Where(r => !r.Deleted)
                     .Where(r => r.PlayerScores.Any(p => p.PlayerName == authenticatedUsername))
                     .OrderByDescending(x => x.StartTime)
                     .Take(20)
-                    .ToListAsync(token: cancellationToken);
+                    .ToListAsync(cancellationToken);
 
                 var userCourses = rounds.Select(r => r.CourseName).Distinct().ToArray();
-                courses = await _documentSession
-                                    .Query<Course>()
-                                    .Where(c => c.Name.IsOneOf(userCourses))
+                courses = await _dbContext.Courses
+                                    .Where(c => userCourses.Contains(c.Name))
                                     .OrderByDescending(c => c.CreatedAt)
                                     .ThenByDescending(c => c.Name)
-                                    .ToListAsync(token: cancellationToken);
+                                    .ToListAsync(cancellationToken);
             }
 
 
@@ -124,12 +120,10 @@ namespace Web.Courses.Queries
         private CourseStats GetCourseStats(Guid courseId)
         {
             if (courseId == default) return new CourseStats { RoundsOnCourse = 0 };
-            var roundsCount = _documentSession
-                .Query<Round>()
+            var roundsCount = _dbContext.Rounds
                 .Count(r => r.CourseId == courseId);
-            var previousRound = _documentSession
-                .Query<Round>()
-                .Where(r => r.CompletedAt > DateTime.Now.AddYears(-1) && r.CourseId == courseId)
+            var previousRound = _dbContext.Rounds
+                .Where(r => r.CompletedAt > DateTime.UtcNow.AddYears(-1) && r.CourseId == courseId)
                 .OrderByDescending(r => r.CompletedAt)
                 .FirstOrDefault();
 

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Marten;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using NServiceBus;
 using Web.Feeds.Domain;
 using Web.Infrastructure;
@@ -12,18 +12,18 @@ namespace Web.Feeds.Handlers
 {
     public class UpdateFeedsOnAchievementEarned : IHandleMessages<UserEarnedAchievement>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHubContext<RoundsHub> _roundsHub;
 
-        public UpdateFeedsOnAchievementEarned(IDocumentSession documentSession, IHubContext<RoundsHub> roundsHub)
+        public UpdateFeedsOnAchievementEarned(DiscmanDbContext dbContext, IHubContext<RoundsHub> roundsHub)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _roundsHub = roundsHub;
         }
 
         public async Task Handle(UserEarnedAchievement notification, IMessageHandlerContext context)
         {
-            var user = await _documentSession.Query<User>().SingleAsync(x => x.Username == notification.Username);
+            var user = await _dbContext.Users.SingleAsync(x => x.Username == notification.Username, context.CancellationToken);
             var friends = user.Friends ?? new List<string>();
             friends.Add(notification.Username);
 
@@ -36,11 +36,11 @@ namespace Web.Feeds.Handlers
                 AchievementName = notification.AchievementName
             };
 
-            _documentSession.Store(feedItem);
+            _dbContext.GlobalFeedItems.Add(feedItem);
 
-            _documentSession.UpdateFriendsFeeds(friends, feedItem);
+            _dbContext.UpdateFriendsFeeds(friends, feedItem);
 
-            await _documentSession.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
     }
 }

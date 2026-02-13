@@ -1,7 +1,5 @@
 using System;
 using FluentValidation;
-using Marten;
-using System.Linq;
 using System.Net.Mail;
 
 namespace Web.Users.Commands

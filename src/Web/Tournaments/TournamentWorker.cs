@@ -2,10 +2,11 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Web.Infrastructure;
 using Web.Feeds.Domain;
 using Web.Rounds;
 using Web.Tournaments.Commands;
@@ -16,14 +17,14 @@ namespace Web.Leaderboard
     public class TournamentWorker : IHostedService, IDisposable
     {
         private readonly ILogger<TournamentWorker> _logger;
-        private readonly IDocumentStore _documentStore;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly IMediator _mediator;
         private Timer _timer;
 
-        public TournamentWorker(ILogger<TournamentWorker> logger, IDocumentStore documentStore, IMediator mediator)
+        public TournamentWorker(ILogger<TournamentWorker> logger, IServiceScopeFactory serviceScopeFactory, IMediator mediator)
         {
             _logger = logger;
-            _documentStore = documentStore;
+            _serviceScopeFactory = serviceScopeFactory;
             _mediator = mediator;
         }
 
@@ -35,10 +36,10 @@ namespace Web.Leaderboard
 
         private void DoWork(object state)
         {
-            using var documentSession = _documentStore.OpenSession();
+            using var scope = _serviceScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
 
-            var tournaments = documentSession
-                .Query<Tournament>()
+            var tournaments = dbContext.Tournaments
                 .Where(t => t.Prices == null)
                 .ToList();
 

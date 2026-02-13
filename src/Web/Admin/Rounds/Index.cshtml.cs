@@ -4,9 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Common.Mapping;
 using Web.Rounds;
 
@@ -41,23 +42,23 @@ namespace Web.Admin.Rounds
 
         public class Handler : IRequestHandler<Query, Result>
         {
-            private readonly IDocumentSession _documentSession;
+            private readonly DiscmanDbContext _dbContext;
             private readonly IMapper _mapper;
 
 
-            public Handler(IDocumentSession documentSession, IMapper mapper)
+            public Handler(DiscmanDbContext dbContext, IMapper mapper)
             {
-                _documentSession = documentSession;
+                _dbContext = dbContext;
                 _mapper = mapper;
             }
 
             public async Task<Result> Handle(Query message, CancellationToken token)
             {
-                var rounds = await _documentSession.Query<Round>()
+                var rounds = await _dbContext.Rounds
                     .Where(r => r.IsCompleted && !r.Deleted)
                     .OrderByDescending(r => r.CompletedAt)
                     .Take(20)
-                    .ToListAsync(token: token);
+                    .ToListAsync(token);
 
 
                 return new Result

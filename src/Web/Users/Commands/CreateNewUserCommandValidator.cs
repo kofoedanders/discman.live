@@ -1,5 +1,5 @@
 using FluentValidation;
-using Marten;
+using Web.Infrastructure;
 using System;
 using System.Linq;
 using System.Net.Mail;
@@ -8,11 +8,11 @@ namespace Web.Users.Commands
 {
     public class CreateNewUserCommandValidator : AbstractValidator<CreateNewUserCommand>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public CreateNewUserCommandValidator(IDocumentSession documentSession)
+        public CreateNewUserCommandValidator(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
 
             RuleFor(v => v.Password)
                 .MinimumLength(5)
@@ -49,12 +49,12 @@ namespace Web.Users.Commands
         private bool EmailNotExist(string email)
         {
             if (string.IsNullOrWhiteSpace(email)) return true;
-            return _documentSession.Query<User>().SingleOrDefault(u => u.Email == email) is null;
+            return _dbContext.Users.SingleOrDefault(u => u.Email == email) is null;
         }
 
         private bool NotExist(string username)
         {
-            return _documentSession.Query<User>().SingleOrDefault(u => u.Username == username) is null;
+            return _dbContext.Users.SingleOrDefault(u => u.Username == username) is null;
         }
     }
 }

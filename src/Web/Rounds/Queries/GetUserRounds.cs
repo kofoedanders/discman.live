@@ -1,10 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using System.Linq;
-using Marten.Pagination;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Rounds;
 
 namespace Web.Rounds.Queries
@@ -18,28 +19,34 @@ namespace Web.Rounds.Queries
     
     public class GetUserRoundsQueryHandler : IRequestHandler<GetUserRoundsQuery, RoundsVm>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetUserRoundsQueryHandler(IDocumentSession documentSession)
+        public GetUserRoundsQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
         
         public async Task<RoundsVm> Handle(GetUserRoundsQuery request, CancellationToken cancellationToken)
         {
-            var rounds = await _documentSession
-                .Query<Round>()
+            var baseQuery = _dbContext.Rounds
                 .Where(r => !r.Deleted)
-                .Where(r => r.PlayerScores.Any(p => p.PlayerName == request.Username))
+                .Where(r => r.PlayerScores.Any(p => p.PlayerName == request.Username));
+            var totalItemCount = await baseQuery.CountAsync(cancellationToken);
+            var rounds = await baseQuery
                 .OrderByDescending(x => x.StartTime)
-                .ToPagedListAsync(request.Page, request.PageSize, token: cancellationToken);
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+            var totalPages = request.PageSize > 0
+                ? (int)Math.Ceiling(totalItemCount / (double)request.PageSize)
+                : 0;
             
             return new RoundsVm
             {
-                Rounds = rounds.ToList(),
-                Pages = rounds.PageCount,
-                PageNumber= rounds.PageNumber,
-                TotalItemCount = rounds.TotalItemCount
+                Rounds = rounds,
+                Pages = totalPages,
+                PageNumber = request.Page,
+                TotalItemCount = totalItemCount
             };
         }
     }

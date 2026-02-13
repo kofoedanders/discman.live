@@ -7,10 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Baseline;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Web.Courses;
+using Web.Infrastructure;
 using Web.Rounds;
 using Web.Tournaments.Domain;
 using Web.Tournaments.Queries;
@@ -24,25 +25,25 @@ namespace Web.Tournaments.Commands
 
     public class CalculatePricesCommandHandler : IRequestHandler<CalculatePricesCommand, TournamentPricesVm>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _contextAccessor;
         private readonly IMapper _mapper;
 
-        public CalculatePricesCommandHandler(IDocumentSession documentSession, IHttpContextAccessor contextAccessor, IMapper mapper)
+        public CalculatePricesCommandHandler(DiscmanDbContext dbContext, IHttpContextAccessor contextAccessor, IMapper mapper)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _contextAccessor = contextAccessor;
             _mapper = mapper;
         }
 
         public async Task<TournamentPricesVm> Handle(CalculatePricesCommand request, CancellationToken cancellationToken)
         {
-            var tournament = await _documentSession.Query<Tournament>().SingleAsync(t => t.Id == request.TournamentId, token: cancellationToken);
+            var tournament = await _dbContext.Tournaments.SingleAsync(t => t.Id == request.TournamentId, cancellationToken);
 
             tournament.Prices = await CalculatePrices(tournament);
 
-            _documentSession.Update(tournament);
-            await _documentSession.SaveChangesAsync(cancellationToken);
+            _dbContext.Tournaments.Update(tournament);
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return _mapper.Map<TournamentPricesVm>(tournament.Prices);
         }
 
@@ -52,7 +53,7 @@ namespace Web.Tournaments.Commands
 
             foreach (var tournamentPlayer in tournament.Players)
             {
-                var rounds = await _documentSession.GetTournamentRounds(tournamentPlayer, tournament);
+                var rounds = await _dbContext.GetTournamentRounds(tournamentPlayer, tournament);
                 var totalScore = rounds.Sum(r => r.PlayerScore(tournamentPlayer));
                 var playerScores = rounds.SelectMany(r => r.PlayerScores.Where(s => s.PlayerName == tournamentPlayer)).ToList();
                 if (playerScores.Any() && playerScores.All(s => s.Scores.All(x => x.StrokeSpecs.Count > 0 || x.Strokes == 1)))

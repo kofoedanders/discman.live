@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Rounds;
 
 namespace Web.Users.Queries
@@ -17,22 +18,21 @@ namespace Web.Users.Queries
 
     public class GetYearSummaryQueryHandler : IRequestHandler<GetYearSummaryQuery, UserYearSummary>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetYearSummaryQueryHandler(IDocumentSession documentSession)
+        public GetYearSummaryQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
 
         public async Task<UserYearSummary> Handle(GetYearSummaryQuery request, CancellationToken cancellationToken)
         {
 
-            var rounds = await _documentSession
-                .Query<Round>()
+            var rounds = await _dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .Where(r => r.PlayerScores.Any(s => s.PlayerName == request.Username))
-                .Where(r => r.StartTime >= new DateTime(request.Year, 1, 1) && r.StartTime < new DateTime(request.Year + 1, 1, 1))
-                .ToListAsync(token: cancellationToken);
+                .Where(r => r.StartTime >= new DateTime(request.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc) && r.StartTime < new DateTime(request.Year + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                .ToListAsync(cancellationToken);
 
             var playerRounds = rounds.ToList();
 

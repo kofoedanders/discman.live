@@ -15,6 +15,7 @@ namespace Web.Infrastructure
             transport.UseConventionalRoutingTopology(QueueType.Quorum);
             transport.ConnectionString(Environment.GetEnvironmentVariable("DOTNET_RABBITMQ_CON_STRING"));
 
+
             var connectionString = Environment.GetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING");
             var persistence = endpointConfiguration.UsePersistence<SqlPersistence>();
             var dialect = persistence.SqlDialect<SqlDialect.PostgreSql>();

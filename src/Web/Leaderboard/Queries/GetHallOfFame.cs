@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
+using Microsoft.EntityFrameworkCore;
 using MediatR;
+using Web.Infrastructure;
 
 namespace Web.Leaderboard.Queries
 {
@@ -11,16 +12,16 @@ namespace Web.Leaderboard.Queries
 
     public class GetHallOfFameQueryHandler : IRequestHandler<GetHallOfFameQuery, HallOfFame>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetHallOfFameQueryHandler(IDocumentSession documentSession)
+        public GetHallOfFameQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
 
         public async Task<HallOfFame> Handle(GetHallOfFameQuery request, CancellationToken cancellationToken)
         {
-            return await _documentSession.Query<HallOfFame>().SingleAsync(token: cancellationToken);
+            return await _dbContext.HallOfFames.SingleAsync(cancellationToken);
         }
     }
 }

@@ -2,23 +2,22 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Marten;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using Remotion.Linq.Clauses;
 using Serilog;
 using Web.Rounds;
+using Microsoft.EntityFrameworkCore;
 
 namespace Web.Infrastructure
 {
     [Authorize]
     public class RoundsHub : Hub
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public RoundsHub(IDocumentSession documentSession)
+        public RoundsHub(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
 
         public override async Task OnConnectedAsync()
@@ -56,8 +55,7 @@ namespace Web.Infrastructure
             var username = Context.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             Log.Information($"{username} joined as spectator");
 
-            var round = await _documentSession
-                .Query<Round>()
+            var round = await _dbContext.Rounds
                 .SingleOrDefaultAsync(r => r.Id == roundId);
 
             if (round is null) return;
@@ -65,8 +63,8 @@ namespace Web.Infrastructure
             if (round.Spectators.All(s => s != username))
             {
                 round.Spectators.Add(username);
-                _documentSession.Update(round);
-                await _documentSession.SaveChangesAsync();
+                _dbContext.Rounds.Update(round);
+                await _dbContext.SaveChangesAsync();
             }
 
             await Groups.AddToGroupAsync(Context.ConnectionId, roundId.ToString());
@@ -79,8 +77,7 @@ namespace Web.Infrastructure
             var username = Context.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
             Log.Information($"{username} left as spectator");
 
-            var round = await _documentSession
-                .Query<Round>()
+            var round = await _dbContext.Rounds
                 .SingleOrDefaultAsync(r => r.Id == roundId);
 
             if (round is null) return;
@@ -88,8 +85,8 @@ namespace Web.Infrastructure
             if (round.Spectators.Any(s => s == username))
             {
                 round.Spectators.Remove(username);
-                _documentSession.Update(round);
-                await _documentSession.SaveChangesAsync();
+                _dbContext.Rounds.Update(round);
+                await _dbContext.SaveChangesAsync();
             }
 
             await Clients.Group(round.Id.ToString()).SendAsync("spectatorLeft", roundId.ToString(), username);
@@ -98,8 +95,7 @@ namespace Web.Infrastructure
         
         private async Task CleanupSpectatorEntries(string username)
         {
-            var rounds = await _documentSession
-                .Query<Round>()
+            var rounds = await _dbContext.Rounds
                 .Where(r => !r.IsCompleted)
                 .Where(r => r.Spectators.Any(s => s == username))
                 .ToListAsync();
@@ -110,11 +106,11 @@ namespace Web.Infrastructure
                 {
                     if (round.Spectators.All(s => s != username)) continue;
                     round.Spectators = round.Spectators.Where(s => s != username).ToList();
-                    _documentSession.Update(round);
+                    _dbContext.Rounds.Update(round);
                     await this.NotifyPlayersOnUpdatedRound(round);
                 }
 
-                await _documentSession.SaveChangesAsync();
+                await _dbContext.SaveChangesAsync();
             }
         }
     }

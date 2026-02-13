@@ -4,12 +4,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Baseline;
-using Marten;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using Serilog;
+using Web.Infrastructure;
 using Web.Rounds;
 
 namespace Web.Users
@@ -17,16 +18,16 @@ namespace Web.Users
     public class UserEmailNotificationWorker : IHostedService, IDisposable
     {
         private readonly ILogger<UserEmailNotificationWorker> _logger;
-        private readonly IDocumentStore _documentStore;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ISendGridClient _sendGridClient;
         private Timer _timer;
         private readonly string[] _userToSendTo = {"kofoed", "torjus", "komtekpete", "cbg", "hettervik", "prodigykarlbebi", "glennhelgesen"};
 
-        public UserEmailNotificationWorker(ILogger<UserEmailNotificationWorker> logger, IDocumentStore documentStore,
+        public UserEmailNotificationWorker(ILogger<UserEmailNotificationWorker> logger, IServiceScopeFactory serviceScopeFactory,
             ISendGridClient sendGridClient)
         {
             _logger = logger;
-            _documentStore = documentStore;
+            _serviceScopeFactory = serviceScopeFactory;
             _sendGridClient = sendGridClient;
         }
 
@@ -38,19 +39,19 @@ namespace Web.Users
 
         private void DoWork(object state)
         {
-            if (DateTime.Now.DayOfWeek != DayOfWeek.Wednesday) return;
+            if (DateTime.UtcNow.DayOfWeek != DayOfWeek.Wednesday) return;
             Thread.Sleep(10000);
-            using var documentSession = _documentStore.OpenSession();
+            using var scope = _serviceScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
 
             _logger.LogInformation("Sending notifications for passive users");
 
-            var users = documentSession.Query<User>().ToList();
+            var users = dbContext.Users.ToList();
             var usersDict = new Dictionary<string, (User user, int roundCount, DateTime? lastRoundStarted)>();
 
             foreach (var user in users)
             {
-                var rounds = documentSession
-                    .Query<Round>()
+                var rounds = dbContext.Rounds
                     .Where(r => r.PlayerScores.Any(p => p.PlayerName == user.Username))
                     .Where(r => !r.Deleted)
                     .Where(r => r.IsCompleted)
@@ -75,11 +76,11 @@ namespace Web.Users
                     .ToList();
 
                 emailsToSend.Add(BuildEmail(roundCount, sinceLastRound, friendsByRounds, user));
-                user.LastEmailSent = DateTime.Now;
-                documentSession.Update(user);
+                user.LastEmailSent = DateTime.UtcNow;
+                dbContext.Users.Update(user);
             }
 
-            documentSession.SaveChanges();
+            dbContext.SaveChanges();
 
             foreach (var sendGridMessage in emailsToSend)
             {
@@ -92,7 +93,7 @@ namespace Web.Users
             if (!_userToSendTo.Contains(user.Username) ||
                 user.Friends is null ||
                 string.IsNullOrWhiteSpace(user.Email) ||
-                user.LastEmailSent > DateTime.Now.AddDays(-14)) return false;
+                user.LastEmailSent > DateTime.UtcNow.AddDays(-14)) return false;
             if (roundCount < 5 || lastRoundStarted is null) return false;
             if (lastRoundStarted > DateTime.Today.AddDays(-14)) return false; 
             return true;

@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Marten;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NServiceBus;
+using Web.Infrastructure;
 using Web.Rounds;
 using Web.Rounds.NSBEvents;
 
@@ -19,24 +20,24 @@ namespace Web.Users.Handlers
     {
         private const double D = 400.0;
         private const double K = 32.0;
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly ILogger<UpdateRatingOnRoundCompleted> _logger;
 
-        public UpdateRatingsCommandHandler(IDocumentSession documentSession,
+        public UpdateRatingsCommandHandler(DiscmanDbContext dbContext,
             ILogger<UpdateRatingOnRoundCompleted> logger)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _logger = logger;
         }
 
         public async Task Handle(UpdateRatingsCommand message, IMessageHandlerContext context)
         {
             _logger.LogInformation("Handling UpdateRatingsCommand");
-            var round = await _documentSession.Query<Round>().FirstOrDefaultAsync(r => r.Id == message.RoundId);
+            var round = await _dbContext.Rounds.FirstOrDefaultAsync(r => r.Id == message.RoundId);
             if (round is null) return;
             var roundPlayers = round.PlayerScores.Select(_ => _.PlayerName).ToArray();
-            var players = _documentSession.Query<User>()
-                .Where(u => u.Username.IsOneOf(roundPlayers))
+            var players = _dbContext.Users
+                .Where(u => roundPlayers.Contains(u.Username))
                 .ToDictionary(_ => _.Username, _ => _);
             if (players.Count < 2) return;
 
@@ -61,11 +62,11 @@ namespace Web.Users.Handlers
                 player.RatingHistory.Add(new Rating {Elo = newElo, DateTime = round.CompletedAt});
                 player.Elo = newElo;
 
-                _documentSession.Update(player);
+                _dbContext.Users.Update(player);
             }
 
-            _documentSession.Update(round);
-            await _documentSession.SaveChangesAsync();
+            _dbContext.Rounds.Update(round);
+            await _dbContext.SaveChangesAsync();
         }
 
         private double CalculatePlayerScoreLinear(int playerStanding, int n)

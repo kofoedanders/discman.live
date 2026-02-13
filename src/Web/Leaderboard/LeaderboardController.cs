@@ -1,5 +1,4 @@
-﻿using System.Threading.Tasks;
-using Marten;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,13 +13,11 @@ namespace Web.Leaderboard
     public class LeaderboardController : ControllerBase
     {
         private readonly ILogger<LeaderboardController> _logger;
-        private readonly IDocumentSession _documentSession;
         private readonly IMediator _mediator;
 
-        public LeaderboardController(ILogger<LeaderboardController> logger, IDocumentSession documentSession, IMediator mediator)
+        public LeaderboardController(ILogger<LeaderboardController> logger, IMediator mediator)
         {
             _logger = logger;
-            _documentSession = documentSession;
             _mediator = mediator;
         }
 

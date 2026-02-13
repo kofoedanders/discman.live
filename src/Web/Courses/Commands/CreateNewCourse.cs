@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Web.Infrastructure;
 using Web.Courses.Queries;
-using Web.Users;
 
 namespace Web.Courses.Commands
 {
@@ -28,15 +30,17 @@ namespace Web.Courses.Commands
 
     public class CreateNewCourseCommandHandler : IRequestHandler<CreateNewCourseCommand, CourseVm>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
+        private readonly ILogger<CreateNewCourseCommandHandler> _logger;
 
-        public CreateNewCourseCommandHandler(IDocumentSession documentSession, IHttpContextAccessor httpContextAccessor, IMapper mapper)
+        public CreateNewCourseCommandHandler(DiscmanDbContext dbContext, IHttpContextAccessor httpContextAccessor, IMapper mapper, ILogger<CreateNewCourseCommandHandler> logger)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _mapper = mapper;
+            _logger = logger;
         }
 
         public async Task<CourseVm> Handle(CreateNewCourseCommand request, CancellationToken cancellationToken)
@@ -60,7 +64,11 @@ namespace Web.Courses.Commands
                 request.HolePars = request.HolePars.Select((holePar, holeIndex) => request.Par5s.Any(p => p == holeIndex + 1) ? 5 : holePar).ToList();
             }
 
-            var existingLayouts = await _documentSession.Query<Course>().Where(c => c.Name == request.CourseName).ToListAsync();
+            var stopwatch = Stopwatch.StartNew();
+            _logger.LogWarning("CreateCourse started {CourseName} {LayoutName} holes {NumberOfHoles}", request.CourseName, request.LayoutName, request.NumberOfHoles);
+
+            var existingLayouts = await _dbContext.Courses.Where(c => c.Name == request.CourseName).ToListAsync(cancellationToken);
+            _logger.LogWarning("CreateCourse loaded existing layouts in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
             if (existingLayouts.Any(l => l.Layout == request.LayoutName))
             {
                 throw new ArgumentException($"Layout on course {request.CourseName} with name {request.LayoutName} already exist");
@@ -69,16 +77,27 @@ namespace Web.Courses.Commands
             foreach (var layoutWithoutName in layoutsWithoutName)
             {
                 layoutWithoutName.Layout = $"Main{layoutWithoutName.CreatedAt.Year}";
-                _documentSession.Update(layoutWithoutName);
             }
+            _dbContext.Courses.UpdateRange(layoutsWithoutName);
 
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
 
 
             var newCourse = new Course(request.CourseName, request.LayoutName, authenticatedUsername, request.HolePars, request.HoleDistances, request.Latitude, request.Longitude);
 
-            _documentSession.Store(newCourse);
-            await _documentSession.SaveChangesAsync(cancellationToken);
+            newCourse.CreatedAt = DateTime.SpecifyKind(newCourse.CreatedAt, DateTimeKind.Utc);
+            _dbContext.Courses.Add(newCourse);
+            try
+            {
+                _logger.LogWarning("CreateCourse saving course {CourseId} at {ElapsedMs}ms", newCourse.Id, stopwatch.ElapsedMilliseconds);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogWarning("CreateCourse persisted {CourseId} at {ElapsedMs}ms", newCourse.Id, stopwatch.ElapsedMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CreateCourse failed before response {CourseName} {LayoutName}", request.CourseName, request.LayoutName);
+                throw;
+            }
             var courseVm = _mapper.Map<CourseVm>(newCourse);
             courseVm.Distance = 0;
 

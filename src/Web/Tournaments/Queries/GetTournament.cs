@@ -3,10 +3,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
 using MediatR;
 using Web.Courses;
+using Microsoft.EntityFrameworkCore;
 using Web.Matches;
+using Web.Infrastructure;
 using Web.Tournaments.Domain;
 
 namespace Web.Tournaments.Queries
@@ -18,13 +19,13 @@ namespace Web.Tournaments.Queries
 
     public class GetTournamentCommandHandler : IRequestHandler<GetTournamentCommand, TournamentVm>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IMapper _mapper;
         private readonly TournamentCache _tournamentCache;
 
-        public GetTournamentCommandHandler(IDocumentSession documentSession, IMapper mapper, TournamentCache tournamentCache)
+        public GetTournamentCommandHandler(DiscmanDbContext dbContext, IMapper mapper, TournamentCache tournamentCache)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _mapper = mapper;
             _tournamentCache = tournamentCache;
         }
@@ -33,11 +34,11 @@ namespace Web.Tournaments.Queries
         {
             var tournamentVm = new TournamentVm();
 
-            var tournament = await _documentSession.Query<Tournament>().SingleAsync(x => x.Id == request.TournamentId, token: cancellationToken);
+            var tournament = await _dbContext.Tournaments.SingleAsync(x => x.Id == request.TournamentId, cancellationToken);
             tournamentVm.Info = _mapper.Map<TournamentInfo>(tournament);
             tournamentVm.Info.Courses = tournament.Courses.Select(cid =>
             {
-                var course = _documentSession.Query<Course>().Single(c => c.Id == cid);
+                var course = _dbContext.Courses.Single(c => c.Id == cid);
                 return new CourseNameAndId
                 {
                     Id = course.Id,
@@ -46,7 +47,7 @@ namespace Web.Tournaments.Queries
                 };
             }).ToList();
 
-            if (tournament.Start < DateTime.Now)
+            if (tournament.Start < DateTime.UtcNow)
             {
                 tournamentVm.Leaderboard = await _tournamentCache.GetOrCreate(tournament.Id, () => CalculateLeaderboard(tournament));
             }
@@ -64,7 +65,7 @@ namespace Web.Tournaments.Queries
             var leaderboard = new TournamentLeaderboard();
             foreach (var tournamentPlayer in tournament.Players)
             {
-                var tournamentRounds = await _documentSession.GetTournamentRounds(tournamentPlayer, tournament);
+                var tournamentRounds = await _dbContext.GetTournamentRounds(tournamentPlayer, tournament);
 
                 var totalScore = tournamentRounds.Sum(r => r.PlayerScore(tournamentPlayer));
                 var coursesPlayed = tournamentRounds.Select(r => r.CourseId).Distinct().ToList();

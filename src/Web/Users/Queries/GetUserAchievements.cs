@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Matches;
 using Web.Rounds;
 
@@ -17,16 +18,16 @@ namespace Web.Users.Queries
     
     public class GetUserAchievementsQueryHandler : IRequestHandler<GetUserAchievementsQuery, List<AchievementAndCount>>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetUserAchievementsQueryHandler(IDocumentSession documentSession)
+        public GetUserAchievementsQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
         
         public async Task<List<AchievementAndCount>> Handle(GetUserAchievementsQuery request, CancellationToken cancellationToken)
         {
-            var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == request.Username, token: cancellationToken);
+            var user = await _dbContext.Users.SingleAsync(u => u.Username == request.Username, cancellationToken);
 
             var userAchievements = user
                 .Achievements

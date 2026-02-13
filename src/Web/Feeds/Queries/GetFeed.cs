@@ -1,15 +1,13 @@
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
-using Marten.Linq;
-using Marten.Pagination;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Web.Feeds.Domain;
+using Web.Infrastructure;
 
 namespace Web.Feeds.Queries
 {
@@ -22,13 +20,13 @@ namespace Web.Feeds.Queries
 
     public class GetFeedCommandHandler : IRequestHandler<GetFeedCommand, FeedVm>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
 
-        public GetFeedCommandHandler(IDocumentSession documentSession, IHttpContextAccessor httpContextAccessor, IMapper mapper)
+        public GetFeedCommandHandler(DiscmanDbContext dbContext, IHttpContextAccessor httpContextAccessor, IMapper mapper)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _mapper = mapper;
         }
@@ -37,24 +35,30 @@ namespace Web.Feeds.Queries
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
 
-            var userFeedQuery = _documentSession
-                .Query<UserFeedItem>()
+            var userFeedQuery = _dbContext
+                .UserFeedItems
                 .Where(x => x.Username == authenticatedUsername)
                 .OrderByDescending(x => x.RegisteredAt);
 
             if (request.ItemType != null) userFeedQuery = (IOrderedQueryable<UserFeedItem>) userFeedQuery.Where(x => x.ItemType == request.ItemType);
 
-            var userFeed = await userFeedQuery.ToPagedListAsync(request.PageNumber, request.PageSize, token: cancellationToken);
+            var totalCount = await userFeedQuery.CountAsync(cancellationToken);
+            var userFeed = await userFeedQuery
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
 
-            var batch = _documentSession.CreateBatchQuery();
-            var itemsTask = batch.LoadMany<GlobalFeedItem>().ByIdList(userFeed.Select(x => x.FeedItemId));
-            await batch.Execute(cancellationToken);
-            var feedItems = await itemsTask;
+            var feedItemIds = userFeed.Select(x => x.FeedItemId).ToList();
+            var feedItems = await _dbContext.GlobalFeedItems
+                .Where(x => feedItemIds.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            var isLastPage = request.PageNumber * request.PageSize >= totalCount;
 
             return new FeedVm
             {
                 FeedItems = feedItems.OrderByDescending(x => x.RegisteredAt).Select(x => _mapper.Map<FeedItemVm>(x)).ToList(),
-                IsLastPage = userFeed.IsLastPage
+                IsLastPage = isLastPage
             };
         }
     }

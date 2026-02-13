@@ -43,12 +43,15 @@ namespace Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddHostedService<UpdateCourseRatingsWorker>();
-            // services.AddHostedService<DiscmanEloUpdater>();
-            services.AddHostedService<UpdateInActiveRoundsWorker>();
-            services.AddHostedService<ResetPasswordWorker>();
-            // services.AddHostedService<DiscmanPointUpdater>();
-            services.AddHostedService<UserEmailNotificationWorker>();
+            if (!_env.IsEnvironment("Testing"))
+            {
+                services.AddHostedService<UpdateCourseRatingsWorker>();
+                // services.AddHostedService<DiscmanEloUpdater>();
+                services.AddHostedService<UpdateInActiveRoundsWorker>();
+                services.AddHostedService<ResetPasswordWorker>();
+                // services.AddHostedService<DiscmanPointUpdater>();
+                services.AddHostedService<UserEmailNotificationWorker>();
+            }
             
             // Updated MediatR configuration for v12.x
             services.AddMediatR(cfg => {
@@ -81,11 +84,8 @@ namespace Web
 
 
             // In production, the React files will be served from this directory
-            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "wwwroot"; });
+            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "ClientApp/build"; });
 
-            services.ConfigureMarten(Configuration, _env);
-            
-            // EF Core DbContext registration (coexists with Marten during migration)
             var connectionString = Configuration.GetValue<string>("DOTNET_POSTGRES_CON_STRING");
             services.AddDbContext<DiscmanDbContext>(options =>
                 options.UseNpgsql(connectionString));
@@ -96,7 +96,7 @@ namespace Web
             services.AddSingleton<CourseStatsCache>();
             services.AddSingleton<PlayerCourseStatsCache>();
 
-            var secret = Configuration.GetValue<string>("DOTNET_TOKEN_SECRET");
+            var secret = Configuration.GetValue<string>("TOKEN_SECRET");
             services.AddAuthentication(x =>
                 {
                     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;

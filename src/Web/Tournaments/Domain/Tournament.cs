@@ -13,7 +13,7 @@ namespace Web.Tournaments.Domain
         public Tournament(string name, DateTime start, DateTime end, string admin)
         {
             Id = Guid.NewGuid();
-            CreatedAt = DateTime.Now;
+            CreatedAt = DateTime.UtcNow;
             Name = name;
             Players = new List<string> { admin };
             Admins = new List<string> { admin };

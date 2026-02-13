@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Marten.Linq;
-using Web.Matches;
 
 namespace Web.Courses
 {
@@ -20,7 +18,7 @@ namespace Web.Courses
             Holes = holePars.Select((h, i) => new Hole(i + 1, h, holeDistances[i])).ToList();
             Admins = new List<string> { admin, "kofoed" };
             Layout = layoutName;
-            CreatedAt = DateTime.Now;
+            CreatedAt = DateTime.UtcNow;
             Coordinates = new Coordinates(latitude, longitude);
         }
 

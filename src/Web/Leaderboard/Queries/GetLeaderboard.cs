@@ -4,9 +4,10 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Matches;
 using Web.Rounds;
 using Web.Users;
@@ -21,13 +22,13 @@ namespace Web.Leaderboard.Queries
 
     public class GetLeaderboardQueryHandler : IRequestHandler<GetLeaderboardQuery, List<PlayerStats>>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly LeaderboardCache _leaderboardCache;
 
-        public GetLeaderboardQueryHandler(IDocumentSession documentSession, IHttpContextAccessor httpContextAccessor, LeaderboardCache leaderboardCache)
+        public GetLeaderboardQueryHandler(DiscmanDbContext dbContext, IHttpContextAccessor httpContextAccessor, LeaderboardCache leaderboardCache)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _leaderboardCache = leaderboardCache;
         }
@@ -44,11 +45,10 @@ namespace Web.Leaderboard.Queries
 
         private async Task<List<PlayerStats>> GetLeaderboardForMonth(int month, bool onlyFriends, string username)
         {
-            var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == username);
+            var user = await _dbContext.Users.SingleAsync(u => u.Username == username);
             var friendsAndMe = user.Friends.Concat(new[] { username }).ToArray();
 
-            var rounds = _documentSession
-                .Query<Round>()
+            var rounds = _dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .Where(r => r.IsCompleted)
                 .ToList();
@@ -56,7 +56,7 @@ namespace Web.Leaderboard.Queries
             if (onlyFriends) rounds = rounds.Where(r => r.PlayerScores.Any(s => friendsAndMe.Any(x => x == s.PlayerName))).ToList();
 
             var roundsThisMonth = rounds
-                .Where(r => r.StartTime.Year == DateTime.Now.Year && (month == 0 || r.StartTime.Month == month)).ToList();
+                .Where(r => r.StartTime.Year == DateTime.UtcNow.Year && (month == 0 || r.StartTime.Month == month)).ToList();
 
             if (!roundsThisMonth.Any()) return new List<PlayerStats>();
 

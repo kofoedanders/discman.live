@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -8,13 +7,14 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Web.Courses;
-using Web.Rounds;
+using Web.Infrastructure;
 using Web.Users;
 
 // Root namespace so [SetUpFixture] applies to ALL test classes in the assembly
@@ -141,12 +141,19 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
             {
                 configuration.RootPath = "ClientApp/build";
             });
+
         });
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
         var testHost = base.CreateHost(builder);
+
+        using (var scope = testHost.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
+            dbContext.Database.Migrate();
+        }
 
         // Use TaskCompletionSource to reliably capture the Kestrel address
         // after the host has fully started (ApplicationStarted event)

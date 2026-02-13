@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Rounds;
 using Web.Users;
 
@@ -17,18 +18,17 @@ namespace Web.Rounds.Queries
 
     public class GetRoundStatsQueryHandler : IRequestHandler<GetRoundStatsQuery, List<UserStats>>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetRoundStatsQueryHandler(IDocumentSession documentSession)
+        public GetRoundStatsQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
 
         public async Task<List<UserStats>> Handle(GetRoundStatsQuery request, CancellationToken cancellationToken)
         {
-            var activeRound = await _documentSession
-                .Query<Round>()
-                .SingleOrDefaultAsync(r => r.Id == request.RoundId, token: cancellationToken);
+            var activeRound = await _dbContext.Rounds
+                .SingleOrDefaultAsync(r => r.Id == request.RoundId, cancellationToken);
 
             var usersStats = new List<UserStats>();
             var roundList = new List<Round> {activeRound};

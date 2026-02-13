@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Matches;
 using Web.Rounds;
 
@@ -19,12 +20,12 @@ namespace Web.Users.Queries
 
     public class GetUserStatsQueryHandler : IRequestHandler<GetUserStatsQuery, UserStats>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly UserStatsCache _userStatsCache;
 
-        public GetUserStatsQueryHandler(IDocumentSession documentSession, UserStatsCache userStatsCache)
+        public GetUserStatsQueryHandler(DiscmanDbContext dbContext, UserStatsCache userStatsCache)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _userStatsCache = userStatsCache;
         }
 
@@ -38,8 +39,7 @@ namespace Web.Users.Queries
 
         private async Task<UserStats> CalculateUserStats(string username, DateTime since, int includeMonths)
         {
-            var rounds = await _documentSession
-                .Query<Round>()
+            var rounds = await _dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .Where(r => r.PlayerScores.Any(s => s.PlayerName == username))
                 .Where(r => r.StartTime > since)

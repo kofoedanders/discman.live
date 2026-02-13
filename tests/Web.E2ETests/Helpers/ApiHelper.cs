@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Web.E2ETests.Helpers;
@@ -28,13 +27,17 @@ public static class ApiHelper
         HttpClient client,
         string username,
         string password,
-        string email = "")
+        string? email = null)
     {
+        var requestEmail = string.IsNullOrWhiteSpace(email)
+            ? $"{username}@discman.local"
+            : email;
+
         var response = await client.PostAsJsonAsync("/api/users", new
         {
             Username = username,
             Password = password,
-            Email = email
+            Email = requestEmail
         });
 
         response.EnsureSuccessStatusCode();

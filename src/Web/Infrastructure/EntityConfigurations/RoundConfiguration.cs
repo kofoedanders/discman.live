@@ -54,9 +54,7 @@ namespace Web.Infrastructure.EntityConfigurations
                 .HasColumnName("created_by")
                 .IsRequired();
             
-            builder.Property(r => r.Achievements)
-                .HasColumnName("achievements")
-                .HasColumnType("jsonb");
+            builder.Ignore(r => r.Achievements);
             
             builder.Property(r => r.Deleted)
                 .HasColumnName("deleted")

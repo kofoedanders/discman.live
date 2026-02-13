@@ -4,11 +4,13 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using NServiceBus;
+using Serilog;
 using Web.Courses;
+using Web.Infrastructure;
 using Web.Rounds.NSBEvents;
 using Web.Users;
 
@@ -24,13 +26,13 @@ namespace Web.Rounds.Commands
 
     public class StartNewRoundCommandHandler : IRequestHandler<StartNewRoundCommand, Round>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMessageSession _messageSession;
 
-        public StartNewRoundCommandHandler(IDocumentSession documentSession, IHttpContextAccessor httpContextAccessor, IMessageSession messageSession)
+        public StartNewRoundCommandHandler(DiscmanDbContext dbContext, IHttpContextAccessor httpContextAccessor, IMessageSession messageSession)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _messageSession = messageSession;
         }
@@ -42,43 +44,51 @@ namespace Web.Rounds.Commands
             var playerNames = request.Players.Select(p => p.ToLower()).ToList();
             if (!playerNames.Any()) playerNames.Add(username);
 
-            var course = _documentSession
-                .Query<Course>()
+            var course = _dbContext.Courses
+                .Include(c => c.Holes)
                 .SingleOrDefault(x => x.Id == request.CourseId);
 
-            var players = _documentSession
-                .Query<User>()
-                .Where(u => u.Username.IsOneOf(playerNames.ToArray()))
+            var players = _dbContext.Users
+                .Where(u => playerNames.Contains(u.Username))
                 .ToList();
 
             var round = course != null
                 ? new Round(course, players, username, request.RoundName, request.ScoreMode)
                 : new Round(players, username, request.RoundName, request.ScoreMode);
 
-            CalculatePlayerCourseAverages(round, players, course);
+            if (course != null)
+            {
+                try
+                {
+                    CalculatePlayerCourseAverages(round, players, course);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "CalculatePlayerCourseAverages failed for course {CourseId}", course.Id);
+                }
+            }
 
-            _documentSession.Store(round);
-            _documentSession.SaveChanges();
+            _dbContext.Rounds.Add(round);
+            _dbContext.SaveChanges();
 
             await _messageSession.Publish(new RoundWasStarted { RoundId = round.Id });
 
-            return await Task.FromResult(round);
+            return round;
         }
 
         private void CalculatePlayerCourseAverages(Round round, List<User> players, Course course)
         {
             foreach (var player in players)
             {
-                var playerCourseRounds = _documentSession
-                    .Query<Round>()
+                var playerCourseRounds = _dbContext.Rounds
                     .Where(r => !r.Deleted)
                     .Where(r => r.IsCompleted)
                     .Where(r => r.PlayerScores.Count > 1)
                     .Where(r => r.CourseId == course.Id)
                     .Where(r => r.PlayerScores.Any(s => s.PlayerName == player.Username))
                     .ToList();
-                var fivePreviousRounds = playerCourseRounds
-                    .Where(r => r.StartTime < DateTime.Now)
+            var fivePreviousRounds = playerCourseRounds
+                .Where(r => r.StartTime < DateTime.UtcNow)
                     .OrderByDescending(r => r.StartTime)
                     .Take(5)
                     .ToList();

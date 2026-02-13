@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -24,16 +23,14 @@ namespace Web.Users
     {
         private readonly ILogger<UsersController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly IDocumentSession _documentSession;
         private readonly IMediator _mediator;
         private static readonly List<DateTime> FailedLoginRequests = new List<DateTime>();
         private readonly string _tokenSecret;
 
-        public UsersController(ILogger<UsersController> logger, IConfiguration configuration, IDocumentSession documentSession, IMediator mediator)
+        public UsersController(ILogger<UsersController> logger, IConfiguration configuration, IMediator mediator)
         {
             _logger = logger;
             _configuration = configuration;
-            _documentSession = documentSession;
             _mediator = mediator;
             _tokenSecret = _configuration.GetValue<string>("TOKEN_SECRET");
         }

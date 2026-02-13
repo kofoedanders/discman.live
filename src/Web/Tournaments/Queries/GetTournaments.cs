@@ -5,11 +5,11 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
-using Marten.Linq;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Web.Rounds;
+using Web.Infrastructure;
 using Web.Tournaments.Domain;
 
 namespace Web.Tournaments.Queries
@@ -23,15 +23,15 @@ namespace Web.Tournaments.Queries
 
     public class GetTournamentsCommandHandler : IRequestHandler<GetTournamentsCommand, IEnumerable<TournamentListing>>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IMapper _mapper;
         private readonly TournamentCache _tournamentCache;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public GetTournamentsCommandHandler(IDocumentSession documentSession, IMapper mapper, TournamentCache tournamentCache,
+        public GetTournamentsCommandHandler(DiscmanDbContext dbContext, IMapper mapper, TournamentCache tournamentCache,
             IHttpContextAccessor httpContextAccessor)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _mapper = mapper;
             _tournamentCache = tournamentCache;
             _httpContextAccessor = httpContextAccessor;
@@ -40,11 +40,10 @@ namespace Web.Tournaments.Queries
         public async Task<IEnumerable<TournamentListing>> Handle(GetTournamentsCommand request, CancellationToken cancellationToken)
         {
             var username = request.Username ?? _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
-            var tournaments = await _documentSession
-                .Query<Tournament>()
+            var tournaments = await _dbContext.Tournaments
                 .Where(t => t.Players.Any(p => p == username))
-                .Where(t => !request.OnlyActive || t.End >= DateTime.Now.Date)
-                .ToListAsync(token: cancellationToken);
+                .Where(t => !request.OnlyActive || t.End >= DateTime.UtcNow.Date)
+                .ToListAsync(cancellationToken);
 
             return tournaments.Select(t => _mapper.Map<TournamentListing>(t)).OrderByDescending(s => s.Start);
         }

@@ -1,7 +1,8 @@
 using System;
 using System.Linq;
 using FluentValidation;
-using Marten;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Tournaments.Domain;
 using Web.Users;
 
@@ -9,11 +10,11 @@ namespace Web.Tournaments.Commands
 {
     public class CreateTournamentValidator : AbstractValidator<CreateTournamentCommand>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public CreateTournamentValidator(IDocumentSession documentSession)
+        public CreateTournamentValidator(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             
             RuleFor(v => v.Name)
                 .MinimumLength(3)
@@ -34,7 +35,7 @@ namespace Web.Tournaments.Commands
         
         private bool NotExist(string name)
         {
-            return _documentSession.Query<Tournament>().SingleOrDefault(u => u.Name == name ) is null;
+            return _dbContext.Tournaments.SingleOrDefault(u => u.Name == name) is null;
         }
     }
 }

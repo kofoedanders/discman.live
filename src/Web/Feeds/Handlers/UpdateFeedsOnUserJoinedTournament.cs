@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using Marten;
+using Microsoft.EntityFrameworkCore;
 using NServiceBus;
 using Web.Feeds.Domain;
+using Web.Infrastructure;
 using Web.Tournaments.Notifications;
 using Web.Users;
 using Action = Web.Feeds.Domain.Action;
@@ -12,16 +14,16 @@ namespace Web.Feeds.Handlers
 {
     public class UpdateFeedsOnUserJoinedTournament : IHandleMessages<PlayerJoinedTournament>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public UpdateFeedsOnUserJoinedTournament(IDocumentSession documentSession)
+        public UpdateFeedsOnUserJoinedTournament(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
 
         public async Task Handle(PlayerJoinedTournament notification, IMessageHandlerContext context)
         {
-            var user = await _documentSession.Query<User>().SingleAsync(x => x.Username == notification.Username);
+            var user = await _dbContext.Users.SingleAsync(x => x.Username == notification.Username, context.CancellationToken);
             var friends = user.Friends ?? new List<string>();
 
             var feedItem = new GlobalFeedItem
@@ -29,16 +31,23 @@ namespace Web.Feeds.Handlers
                 Subjects = new List<string> { user.Username },
                 ItemType = ItemType.Tournament,
                 Action = Action.Joined,
-                RegisteredAt = DateTime.Now,
+                RegisteredAt = DateTime.UtcNow,
                 TournamentId = notification.TournamentId,
                 TournamentName = notification.TournamentName
             };
 
-            _documentSession.Store(feedItem);
+            _dbContext.GlobalFeedItems.Add(feedItem);
 
-            _documentSession.UpdateFriendsFeeds(friends, feedItem);
+            var userFeedItems = friends.Select(friend => new UserFeedItem
+            {
+                FeedItemId = feedItem.Id,
+                ItemType = feedItem.ItemType,
+                RegisteredAt = feedItem.RegisteredAt,
+                Username = friend
+            }).ToList();
+            _dbContext.UserFeedItems.AddRange(userFeedItems);
 
-            await _documentSession.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
     }
 }

@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Rounds;
 
 namespace Web.Rounds.Queries
@@ -16,12 +17,12 @@ namespace Web.Rounds.Queries
 
     public class GetPlayersCourseStatsQueryHandler : IRequestHandler<GetPlayersCourseStatsQuery, List<PlayerCourseStats>>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly PlayerCourseStatsCache _playerCourseStatsCache;
 
-        public GetPlayersCourseStatsQueryHandler(IDocumentSession documentSession, PlayerCourseStatsCache playerCourseStatsCache)
+        public GetPlayersCourseStatsQueryHandler(DiscmanDbContext dbContext, PlayerCourseStatsCache playerCourseStatsCache)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _playerCourseStatsCache = playerCourseStatsCache;
         }
 
@@ -32,9 +33,8 @@ namespace Web.Rounds.Queries
 
         private async Task<List<PlayerCourseStats>> CalculatePlayersCourseStats(GetPlayersCourseStatsQuery request, CancellationToken cancellationToken)
         {
-            var activeRound = await _documentSession
-                .Query<Round>()
-                .SingleOrDefaultAsync(r => r.Id == request.RoundId, token: cancellationToken);
+            var activeRound = await _dbContext.Rounds
+                .SingleOrDefaultAsync(r => r.Id == request.RoundId, cancellationToken);
 
             if (activeRound is null)
             {
@@ -50,8 +50,7 @@ namespace Web.Rounds.Queries
             if (courseName is null) return playersStats;
             foreach (var player in players)
             {
-                var playerRounds = _documentSession
-                    .Query<Round>()
+                var playerRounds = _dbContext.Rounds
                     .Where(r => !r.Deleted)
                     .Where(r => r.IsCompleted)
                     .Where(r => r.PlayerScores.Count > 1)

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Marten;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
 using NServiceBus;
 using Web.Feeds.Domain;
@@ -16,24 +16,24 @@ namespace Web.Feeds.Handlers
 {
     public class UpdateFeedsOnRoundStarted : IHandleMessages<RoundWasStarted>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHubContext<RoundsHub> _roundsHub;
 
-        public UpdateFeedsOnRoundStarted(IDocumentSession documentSession, IHubContext<RoundsHub> roundsHub)
+        public UpdateFeedsOnRoundStarted(DiscmanDbContext dbContext, IHubContext<RoundsHub> roundsHub)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _roundsHub = roundsHub;
         }
 
         public async Task Handle(RoundWasStarted notification, IMessageHandlerContext context)
         {
-            var round = await _documentSession.Query<Round>().SingleAsync(x => x.Id == notification.RoundId);
+            var round = await _dbContext.Rounds.SingleAsync(x => x.Id == notification.RoundId, context.CancellationToken);
 
             var players = round.PlayerScores.Select(s => s.PlayerName).ToList();
             var friends = players.ToList();
             foreach (var player in players)
             {
-                var user = await _documentSession.Query<User>().SingleAsync(x => x.Username == player);
+                var user = await _dbContext.Users.SingleAsync(x => x.Username == player, context.CancellationToken);
                 friends.AddRange(user.Friends ?? new List<string>());
             }
 
@@ -45,16 +45,23 @@ namespace Web.Feeds.Handlers
                 Subjects = players,
                 ItemType = ItemType.Round,
                 Action = Action.Started,
-                RegisteredAt = DateTime.Now,
+                RegisteredAt = DateTime.UtcNow,
                 CourseName = round.CourseName,
                 RoundId = round.Id
             };
 
-            _documentSession.Store(feedItem);
+            _dbContext.GlobalFeedItems.Add(feedItem);
 
-            _documentSession.UpdateFriendsFeeds(friends, feedItem);
+            var userFeedItems = friends.Select(friend => new UserFeedItem
+            {
+                FeedItemId = feedItem.Id,
+                ItemType = feedItem.ItemType,
+                RegisteredAt = feedItem.RegisteredAt,
+                Username = friend
+            }).ToList();
+            _dbContext.UserFeedItems.AddRange(userFeedItems);
 
-            await _documentSession.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
     }
 }

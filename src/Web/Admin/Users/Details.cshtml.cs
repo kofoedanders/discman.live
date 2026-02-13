@@ -1,9 +1,10 @@
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using Marten;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 using Web.Common.Mapping;
 using Web.Users;
 
@@ -39,20 +40,20 @@ namespace Web.Admin.Users
 
         public class Handler : IRequestHandler<Query, Result>
         {
-            private readonly IDocumentSession _documentSession;
+            private readonly DiscmanDbContext _dbContext;
             private readonly IMapper _mapper;
 
 
-            public Handler(IDocumentSession documentSession, IMapper mapper)
+            public Handler(DiscmanDbContext dbContext, IMapper mapper)
             {
-                _documentSession = documentSession;
+                _dbContext = dbContext;
                 _mapper = mapper;
             }
 
             public async Task<Result> Handle(Query message, CancellationToken token)
             {
-                var user = await _documentSession.Query<User>()
-                    .FirstOrDefaultAsync(u => u.Username == message.Username, token: token);
+                var user = await _dbContext.Users
+                    .FirstOrDefaultAsync(u => u.Username == message.Username, token);
 
                 return new Result
                 {

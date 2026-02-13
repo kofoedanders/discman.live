@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Baseline.Reflection;
 using Web.Courses;
 using Web.Users;
 
@@ -19,7 +18,7 @@ namespace Web.Rounds
             CourseName = course.Name;
             CourseLayout = course.Layout;
             CourseId = course.Id;
-            StartTime = DateTime.Now;
+            StartTime = DateTime.UtcNow;
             PlayerScores = GenerateEmptyScoreCard(course.Holes, players);
             CreatedBy = createdBy;
             RoundName = roundName;
@@ -29,7 +28,7 @@ namespace Web.Rounds
         public Round(List<User> players, string createdBy, string roundName, ScoreMode scoreMode)
         {
             Id = Guid.NewGuid();
-            StartTime = DateTime.Now;
+            StartTime = DateTime.UtcNow;
             PlayerScores = players
                 .Select(p => new PlayerScore
                 {
@@ -67,7 +66,7 @@ namespace Web.Rounds
         public bool Deleted { get; set; }
         public List<RatingChange> RatingChanges { get; set; } = new List<RatingChange>();
 
-        public double DurationMinutes => IsCompleted ? Math.Round((CompletedAt - StartTime).TotalMinutes) : Math.Round((DateTime.Now - StartTime).TotalMinutes);
+        public double DurationMinutes => IsCompleted ? Math.Round((CompletedAt - StartTime).TotalMinutes) : Math.Round((DateTime.UtcNow - StartTime).TotalMinutes);
 
         private static List<PlayerScore> GenerateEmptyScoreCard(List<Hole> courseHoles, List<User> players)
         {
@@ -120,14 +119,14 @@ namespace Web.Rounds
             {
                 Username = username,
                 Base64Signature = base64Signature,
-                SignedAt = DateTime.Now
+                    SignedAt = DateTime.UtcNow
             });
             var playersInRound = PlayerScores.Select(s => s.PlayerName);
             if (playersInRound.All(pr => Signatures.Any(s => s.Username == pr)))
             {
 
                 IsCompleted = true;
-                CompletedAt = DateTime.Now;
+                CompletedAt = DateTime.UtcNow;
             }
         }
 
@@ -192,7 +191,7 @@ namespace Web.Rounds
             RelativeToPar = relativeToPar;
             StrokeSpecs = strokeOutcomes?.Select(outcome => new StrokeSpec { Outcome = Enum.Parse<StrokeSpec.StrokeOutcome>(outcome, true) }).ToList();
             if (StrokeSpecs != null && StrokeSpecs.Any()) StrokeSpecs.Last().PutDistance = putDistance;
-            RegisteredAt = DateTime.Now;
+            RegisteredAt = DateTime.UtcNow;
             return relativeToPar;
         }
 

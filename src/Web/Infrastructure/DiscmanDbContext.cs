@@ -9,7 +9,6 @@ using Web.Users.Domain;
 
 namespace Web.Infrastructure
 {
-    /// <summary>EF Core DbContext for Discman app. Replaces Marten document store.</summary>
     public class DiscmanDbContext : DbContext
     {
         public DiscmanDbContext(DbContextOptions<DiscmanDbContext> options)
@@ -17,7 +16,6 @@ namespace Web.Infrastructure
         {
         }
 
-        // 8 Marten document types
         public DbSet<Web.Users.User> Users { get; set; }
         public DbSet<Round> Rounds { get; set; }
         public DbSet<Course> Courses { get; set; }
@@ -27,6 +25,7 @@ namespace Web.Infrastructure
         public DbSet<HallOfFame> HallOfFames { get; set; }
         public DbSet<MonthHallOfFame> MonthHallOfFames { get; set; }
         public DbSet<ResetPasswordRequest> ResetPasswordRequests { get; set; }
+        public DbSet<PlayerCourseStats> PlayerCourseStats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

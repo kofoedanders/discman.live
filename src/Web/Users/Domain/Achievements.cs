@@ -115,7 +115,7 @@ namespace Web.Users
         public Achievement(string username, Guid roundId)
         {
             Username = username;
-            AchievedAt = DateTime.Now;
+            AchievedAt = DateTime.UtcNow;
         }
 
         public Guid RoundId { get; set; }

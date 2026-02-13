@@ -11,11 +11,11 @@
     "Web": {
       "commandName": "Project",
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:5000",
+      "applicationUrl": "http://127.0.0.1:5001",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_ENVIRONMENT": "Production",
         "DOTNET_TOKEN_SECRET": "THISISTHETOKENSECRETTHISISTHETOKENSECRETTHISISTHETOKENSECRETTHISISTHETOKENSECRETTHISISTHETOKENSECRETTHISISTHETOKENSECRET",
-        "DOTNET_POSTGRES_CON_STRING": "host=localhost;database=disclive;password=;username=postgres",
+        "DOTNET_POSTGRES_CON_STRING": "host=localhost;database=discman_ef;password=;username=postgres",
         "DOTNET_RABBITMQ_CON_STRING": "host=localhost"
       }
     }

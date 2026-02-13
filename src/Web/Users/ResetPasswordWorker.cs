@@ -2,24 +2,24 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
-using Web.Users.Domain;
+using Web.Infrastructure;
 
 namespace Web.Users
 {
     public class ResetPasswordWorker : IHostedService, IDisposable
     {
         private readonly ILogger<ResetPasswordWorker> _logger;
-        private readonly IDocumentStore _documentStore;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private Timer _timer;
 
-        public ResetPasswordWorker(ILogger<ResetPasswordWorker> logger, IDocumentStore documentStore)
+        public ResetPasswordWorker(ILogger<ResetPasswordWorker> logger, IServiceScopeFactory serviceScopeFactory)
         {
             _logger = logger;
-            _documentStore = documentStore;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         public Task StartAsync(CancellationToken stoppingToken)
@@ -30,20 +30,20 @@ namespace Web.Users
 
         private void DoWork(object state)
         {
-            using var documentSession = _documentStore.OpenSession();
+            using var scope = _serviceScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
 
-            var expiredRequests = documentSession
-                .Query<ResetPasswordRequest>()
-                .Where(r => r.CreatedAt.AddHours(2) < DateTime.Now)
+            var expiredRequests = dbContext.ResetPasswordRequests
+                .Where(r => r.CreatedAt.AddHours(2) < DateTime.UtcNow)
                 .ToList();
 
             foreach (var expiredRequest in expiredRequests)
             {
-                documentSession.Delete(expiredRequest);
+                dbContext.ResetPasswordRequests.Remove(expiredRequest);
                 Log.Information($"Deleting expired reset password request for email {expiredRequest.Email} {expiredRequest.Id}");
             }
             
-            documentSession.SaveChanges();
+            dbContext.SaveChanges();
         }
 
         public Task StopAsync(CancellationToken stoppingToken)

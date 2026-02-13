@@ -3,15 +3,15 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
-using Marten.Linq;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 using Serilog;
 using Web.Common;
+using Web.Infrastructure;
 using Web.Users.Domain;
 
 namespace Web.Users.Commands
@@ -24,25 +24,24 @@ namespace Web.Users.Commands
 
     public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, bool>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly ISendGridClient _sendGridClient;
 
-        public ResetPasswordCommandHandler(IDocumentSession documentSession, ISendGridClient sendGridClient)
+        public ResetPasswordCommandHandler(DiscmanDbContext dbContext, ISendGridClient sendGridClient)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _sendGridClient = sendGridClient;
         }
 
         public async Task<bool> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
         {
-            var resetPasswordRequest = await _documentSession
-                .Query<ResetPasswordRequest>()
-                .SingleOrDefaultAsync(u => u.Id == request.ResetId, token: cancellationToken);
+            var resetPasswordRequest = await _dbContext.ResetPasswordRequests
+                .SingleOrDefaultAsync(u => u.Id == request.ResetId, cancellationToken);
 
             if (resetPasswordRequest is null) throw new NotFoundException();
 
-            var user = await _documentSession.Query<User>()
-                .SingleOrDefaultAsync(u => u.Username == resetPasswordRequest.Username, token: cancellationToken);
+            var user = await _dbContext.Users
+                .SingleOrDefaultAsync(u => u.Username == resetPasswordRequest.Username, cancellationToken);
 
             Log.Information($"Changing password for user {user.Username} {resetPasswordRequest.Id}");
 
@@ -50,11 +49,11 @@ namespace Web.Users.Commands
 
             user.ChangePassword(hashedPw);
 
-            _documentSession.Update(user);
+            _dbContext.Users.Update(user);
 
-            _documentSession.Delete(resetPasswordRequest);
+            _dbContext.ResetPasswordRequests.Remove(resetPasswordRequest);
 
-            await _documentSession.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return true;
         }
     }

@@ -2,12 +2,11 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Baseline.Reflection;
 using MediatR.Pipeline;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Serilog;
-using Web.Users;
+using Web.Courses.Commands;
 using Web.Users.Commands;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
@@ -55,6 +54,17 @@ namespace Web.Common.Behaviours
                     changePasswordCommand.NewPassword = password;
                     break;
                 }
+                case CreateNewCourseCommand createCourseRequest:
+                {
+                    Log.Information(
+                        "Discman Request: {RequestName} {Username} {CourseName} {LayoutName} {NumberOfHoles}",
+                        requestName,
+                        username,
+                        createCourseRequest.CourseName,
+                        createCourseRequest.LayoutName,
+                        createCourseRequest.NumberOfHoles);
+                    break;
+                }
                 default:
                     LogRequest(request, requestName, username);
                     break;
@@ -67,7 +77,7 @@ namespace Web.Common.Behaviours
         private static void LogRequest(TRequest request, string requestName, string username)
         {
             Log
-                .ForContext("Request", request, destructureObjects: true)
+                .ForContext("Request", request, destructureObjects: false)
                 .Information("Discman Request: {RequestName} {Username}", requestName, username);
         }
     }

@@ -1,26 +1,23 @@
-using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using Marten;
+using System.Linq;
 using Web.Feeds.Domain;
+using Web.Infrastructure;
 
 namespace Web.Feeds
 {
     public static class StorageExtensions
     {
-        public static void UpdateFriendsFeeds(this IDocumentSession documentSession, List<string> friends, GlobalFeedItem feedItem)
+        public static void UpdateFriendsFeeds(this DiscmanDbContext dbContext, List<string> friends, GlobalFeedItem feedItem)
         {
-            foreach (var friend in friends)
+            var userFeedItems = friends.Select(friend => new UserFeedItem
             {
-                documentSession.Store(new UserFeedItem
-                {
-                    FeedItemId = feedItem.Id,
-                    ItemType = feedItem.ItemType,
-                    RegisteredAt = feedItem.RegisteredAt,
-                    Username = friend
-                });
-            }
+                FeedItemId = feedItem.Id,
+                ItemType = feedItem.ItemType,
+                RegisteredAt = feedItem.RegisteredAt,
+                Username = friend
+            }).ToList();
+
+            dbContext.UserFeedItems.AddRange(userFeedItems);
         }
     }
 }

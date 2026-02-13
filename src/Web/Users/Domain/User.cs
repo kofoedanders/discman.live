@@ -4,13 +4,11 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using Marten.Schema;
 using Microsoft.IdentityModel.Tokens;
 using Web.Rounds;
 
 namespace Web.Users
 {
-    [UseOptimisticConcurrency]
     public class User
     {
         public User()

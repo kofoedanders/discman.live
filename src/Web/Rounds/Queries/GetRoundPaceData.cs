@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 
 namespace Web.Rounds.Queries
 {
@@ -42,7 +43,7 @@ namespace Web.Rounds.Queries
     /// </summary>
     public class GetRoundPaceDataQueryHandler : IRequestHandler<GetRoundPaceDataQuery, RoundPaceData>
     {
-        private readonly IDocumentSession _session;
+        private readonly DiscmanDbContext _dbContext;
 
         private const int MinSampleSize = 3;
 
@@ -57,21 +58,21 @@ namespace Web.Rounds.Queries
             { 6, 1.18 },
         };
 
-        public GetRoundPaceDataQueryHandler(IDocumentSession session)
+        public GetRoundPaceDataQueryHandler(DiscmanDbContext dbContext)
         {
-            _session = session;
+            _dbContext = dbContext;
         }
 
         public async Task<RoundPaceData> Handle(GetRoundPaceDataQuery request, CancellationToken cancellationToken)
         {
-            var round = await _session.Query<Round>()
-                .SingleOrDefaultAsync(r => r.Id == request.RoundId, token: cancellationToken);
+            var round = await _dbContext.Rounds
+                .SingleOrDefaultAsync(r => r.Id == request.RoundId, cancellationToken);
 
             if (round == null) return null;
 
             var totalHoles = round.PlayerScores.FirstOrDefault()?.Scores.Count ?? 18;
 
-            var historicalRounds = await _session.Query<Round>()
+            var historicalRounds = await _dbContext.Rounds
                 .Where(r => r.CourseId == round.CourseId)
                 .Where(r => r.CourseLayout == round.CourseLayout)
                 .Where(r => r.IsCompleted)

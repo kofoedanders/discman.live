@@ -2,25 +2,23 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
-using Marten.Linq.SoftDeletes;
-using Marten.Util;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Web.Rounds;
+using Microsoft.Extensions.DependencyInjection;
+using Web.Infrastructure;
 
 namespace Web.Courses
 {
     public class UpdateInActiveRoundsWorker : IHostedService, IDisposable
     {
         private readonly ILogger<UpdateInActiveRoundsWorker> _logger;
-        private readonly IDocumentStore _documentStore;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private Timer _timer;
 
-        public UpdateInActiveRoundsWorker(ILogger<UpdateInActiveRoundsWorker> logger, IDocumentStore documentStore)
+        public UpdateInActiveRoundsWorker(ILogger<UpdateInActiveRoundsWorker> logger, IServiceScopeFactory serviceScopeFactory)
         {
             _logger = logger;
-            _documentStore = documentStore;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         public Task StartAsync(CancellationToken stoppingToken)
@@ -31,13 +29,15 @@ namespace Web.Courses
 
         private void DoWork(object state)
         {
-            using var documentSession = _documentStore.OpenSession();
+            using var scope = _serviceScopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
 
-            var activeRounds = documentSession
-                .Query<Round>()
+            var cutoff = DateTime.UtcNow.AddDays(-2);
+            var activeRounds = dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .Where(r => !r.IsCompleted)
-                .Where(r => r.StartTime < DateTime.Today.AddDays(-2)).ToList();
+                .Where(r => r.StartTime < cutoff)
+                .ToList();
 
             if (!activeRounds.Any()) return;
 
@@ -53,10 +53,10 @@ namespace Web.Courses
                     round.IsCompleted = true;
                 }
 
-                documentSession.Update(round);
+                dbContext.Rounds.Update(round);
             }
 
-            documentSession.SaveChanges();
+            dbContext.SaveChanges();
         }
 
         public Task StopAsync(CancellationToken stoppingToken)

@@ -1,6 +1,4 @@
 using FluentValidation;
-using Marten;
-using System.Linq;
 
 namespace Web.Users.Commands
 {

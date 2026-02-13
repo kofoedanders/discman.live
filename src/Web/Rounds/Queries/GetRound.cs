@@ -1,11 +1,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
 using MediatR;
 using Web.Rounds;
 using System.Linq;
 using Web.Common;
+using Web.Infrastructure;
 
 namespace Web.Rounds.Queries
 {
@@ -16,17 +16,16 @@ namespace Web.Rounds.Queries
 
     public class GetRoundsQueryHandler : IRequestHandler<GetRoundQuery, Round>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
 
-        public GetRoundsQueryHandler(IDocumentSession documentSession)
+        public GetRoundsQueryHandler(DiscmanDbContext dbContext)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
         }
         
         public async Task<Round> Handle(GetRoundQuery request, CancellationToken cancellationToken)
         {
-            var round =  _documentSession
-                .Query<Round>()
+            var round =  _dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .SingleOrDefault(x => x.Id == request.RoundId);
             

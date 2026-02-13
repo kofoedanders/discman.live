@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using System;
 
 namespace Web.Infrastructure
 {
@@ -15,7 +16,13 @@ namespace Web.Infrastructure
             
             // Design-time connection string (for migrations only)
             // Runtime uses DOTNET_POSTGRES_CON_STRING from environment
-            optionsBuilder.UseNpgsql("host=localhost;database=discman;username=postgres;password=Password12!");
+            var connectionString = Environment.GetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                connectionString = "host=localhost;database=discman;username=postgres;password=Password12!";
+            }
+
+            optionsBuilder.UseNpgsql(connectionString);
             
             return new DiscmanDbContext(optionsBuilder.Options);
         }

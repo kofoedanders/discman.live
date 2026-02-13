@@ -11,12 +11,10 @@ namespace Web.Infrastructure.EntityConfigurations
             builder.ToTable("tournaments");
             builder.HasKey(t => t.Id);
             
-            // Primary key
             builder.Property(t => t.Id)
                 .HasColumnName("id")
                 .IsRequired();
             
-            // Simple properties
             builder.Property(t => t.Name)
                 .HasColumnName("name")
                 .IsRequired();
@@ -33,7 +31,6 @@ namespace Web.Infrastructure.EntityConfigurations
                 .HasColumnName("end")
                 .IsRequired();
             
-            // PostgreSQL array columns
             builder.Property(t => t.Players)
                 .HasColumnType("text[]")
                 .HasColumnName("players")
@@ -49,10 +46,6 @@ namespace Web.Infrastructure.EntityConfigurations
                 .HasColumnName("courses")
                 .IsRequired();
             
-            // JSONB column for nested TournamentPrices object
-            // DO NOT normalize - TournamentPrices has 7+ nested sub-objects
-            // (Scoreboard, FastestPlayer, SlowestPlayer, MostBirdies, etc.)
-            // Keep as JSONB to match Marten behavior and avoid over-normalization
             builder.Property(t => t.Prices)
                 .HasColumnType("jsonb")
                 .HasColumnName("prices");

@@ -1,8 +1,7 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.Collections.Generic;
+using Npgsql;
 using NpgsqlTypes;
 using NServiceBus;
 using Serilog;
@@ -17,6 +16,7 @@ namespace Web
         public static void Main(string[] args)
         {
             ConfigureLogger();
+            NpgsqlConnection.GlobalTypeMapper.EnableDynamicJson();
 
             try
             {
@@ -39,6 +39,14 @@ namespace Web
                 // Configure the HTTP request pipeline
                 startup.Configure(app, app.Environment);
                 
+                app.Lifetime.ApplicationStarted.Register(() =>
+                {
+                    Console.WriteLine("======================================");
+                    Console.WriteLine("  Discman.live is ready!");
+                    Console.WriteLine("  Open http://127.0.0.1:5001 in your browser");
+                    Console.WriteLine("======================================");
+                });
+                
                 app.Run();
             }
             catch (Exception ex)
@@ -56,7 +64,7 @@ namespace Web
             Serilog.Debugging.SelfLog.Enable(Console.Error);
             var logConfig = new LoggerConfiguration()
                 .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-                .MinimumLevel.Override("Marten", LogEventLevel.Warning)
+                .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
                 .WriteTo.Console()
                 .Enrich.WithProperty("ApplicationName", "discman.live")
                 .MinimumLevel.Warning();
@@ -83,7 +91,11 @@ namespace Web
                 {"machine_name", new SinglePropertyColumnWriter("MachineName", PropertyWriteMethod.ToString, NpgsqlDbType.Text, "l") }
             };
 
-            logConfig.WriteTo.PostgreSQL(Environment.GetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING"), tableName, columnWriters, needAutoCreateTable: true);
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            if (!string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase))
+            {
+                logConfig.WriteTo.PostgreSQL(Environment.GetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING"), tableName, columnWriters, needAutoCreateTable: true);
+            }
             Log.Logger = logConfig.CreateLogger();
         }
     }

@@ -1,7 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Web.Users;
 
 namespace Web.Infrastructure.EntityConfigurations
 {
@@ -78,28 +76,7 @@ namespace Web.Infrastructure.EntityConfigurations
                 .HasColumnType("text[]")
                 .IsRequired();
             
-            // Achievements as separate table with TPH discriminator
-            builder.OwnsMany(u => u.Achievements, achievement =>
-            {
-                achievement.ToTable("user_achievements");
-                achievement.WithOwner().HasForeignKey("UserId");
-                achievement.Property<int>("Id");
-                achievement.HasKey("Id");
-                
-                achievement.Property(a => a.AchievementName)
-                    .HasColumnName("achievement_name")
-                    .IsRequired();
-                achievement.Property(a => a.Username)
-                    .HasColumnName("username")
-                    .IsRequired();
-                achievement.Property(a => a.AchievedAt)
-                    .HasColumnName("achieved_at")
-                    .IsRequired();
-                achievement.Property(a => a.RoundId)
-                    .HasColumnName("round_id");
-                achievement.Property(a => a.HoleNumber)
-                    .HasColumnName("hole_number");
-            });
+            builder.Ignore(u => u.Achievements);
             
             // RatingHistory as separate table
             builder.OwnsMany(u => u.RatingHistory, rating =>

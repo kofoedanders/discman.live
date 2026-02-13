@@ -2,11 +2,11 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Marten;
-using Marten.Linq;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Web.Infrastructure;
 
 namespace Web.Users.Commands
 {
@@ -17,13 +17,13 @@ namespace Web.Users.Commands
     
     public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, bool>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _tokenSecret;
 
-        public ChangePasswordCommandHandler(IDocumentSession documentSession, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        public ChangePasswordCommandHandler(DiscmanDbContext dbContext, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _httpContextAccessor = httpContextAccessor;
             _tokenSecret = configuration.GetValue<string>("TOKEN_SECRET");
         }
@@ -31,15 +31,15 @@ namespace Web.Users.Commands
         public async Task<bool> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
         {
             var authenticatedUsername = _httpContextAccessor.HttpContext?.User.Claims.Single(c => c.Type == ClaimTypes.Name).Value;
-            var user = await _documentSession.Query<User>().SingleAsync(u => u.Username == authenticatedUsername, token: cancellationToken);
+            var user = await _dbContext.Users.SingleAsync(u => u.Username == authenticatedUsername, cancellationToken);
             
             var hashedPw = new SaltSeasonedHashedPassword(request.NewPassword);
 
             user.ChangePassword(hashedPw);
 
-            _documentSession.Update(user);
+            _dbContext.Users.Update(user);
             
-            await _documentSession.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
             return true;
         }
     }

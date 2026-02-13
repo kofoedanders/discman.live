@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Marten;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using NServiceBus;
 using Web.Feeds.Domain;
 using Web.Infrastructure;
@@ -14,12 +14,12 @@ namespace Web.Feeds.Handlers
 {
     public class UpdateFeedsOnScoreUpdated : IHandleMessages<ScoreWasUpdated>
     {
-        private readonly IDocumentSession _documentSession;
+        private readonly DiscmanDbContext _dbContext;
         private readonly IHubContext<RoundsHub> _roundsHub;
 
-        public UpdateFeedsOnScoreUpdated(IDocumentSession documentSession, IHubContext<RoundsHub> roundsHub)
+        public UpdateFeedsOnScoreUpdated(DiscmanDbContext dbContext, IHubContext<RoundsHub> roundsHub)
         {
-            _documentSession = documentSession;
+            _dbContext = dbContext;
             _roundsHub = roundsHub;
         }
 
@@ -28,7 +28,7 @@ namespace Web.Feeds.Handlers
             await CleanupFeedsIfScoreWasChanged(notification);
             if (notification.RelativeScore > -1) return;
 
-            var user = await _documentSession.Query<User>().SingleAsync(x => x.Username == notification.Username);
+            var user = await _dbContext.Users.SingleAsync(x => x.Username == notification.Username, context.CancellationToken);
             var friends = user.Friends ?? new List<string>();
             friends.Add(notification.Username);
 
@@ -39,23 +39,22 @@ namespace Web.Feeds.Handlers
                 CourseName = notification.CourseName,
                 HoleScore = notification.RelativeScore,
                 HoleNumber = notification.HoleNumber,
-                RegisteredAt = DateTime.Now,
+                RegisteredAt = DateTime.UtcNow,
                 RoundId = notification.RoundId
             };
 
-            _documentSession.Store(feedItem);
+            _dbContext.GlobalFeedItems.Add(feedItem);
 
-            _documentSession.UpdateFriendsFeeds(friends, feedItem);
+            _dbContext.UpdateFriendsFeeds(friends, feedItem);
 
-            await _documentSession.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(context.CancellationToken);
         }
 
         private async Task CleanupFeedsIfScoreWasChanged(ScoreWasUpdated notification)
         {
             if (!notification.ScoreWasChanged) return;
 
-            var globalItem = await _documentSession
-                .Query<GlobalFeedItem>()
+            var globalItem = await _dbContext.GlobalFeedItems
                 .Where(i =>
                     i.RoundId == notification.RoundId &&
                     i.HoleNumber == notification.HoleNumber &&
@@ -64,18 +63,13 @@ namespace Web.Feeds.Handlers
 
             if (globalItem is null) return;
 
-            var userItems = await _documentSession
-                .Query<UserFeedItem>()
+            var userItems = await _dbContext.UserFeedItems
                 .Where(i => i.FeedItemId == globalItem.Id)
                 .ToListAsync();
 
-            foreach (var userItem in userItems)
-            {
-                _documentSession.Delete(userItem);
-            }
-
-            _documentSession.Delete(globalItem);
-            await _documentSession.SaveChangesAsync();
+            _dbContext.UserFeedItems.RemoveRange(userItems);
+            _dbContext.GlobalFeedItems.Remove(globalItem);
+            await _dbContext.SaveChangesAsync();
         }
     }
 }

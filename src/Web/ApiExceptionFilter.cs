@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using Serilog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -59,6 +59,7 @@ namespace Web
 
         private void HandleUnknownException(ExceptionContext context)
         {
+            Log.Error(context.Exception, "Unhandled exception while processing request");
             var details = new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
