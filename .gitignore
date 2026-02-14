@@ -255,3 +255,17 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+
+# Infrastructure secrets and env files
+infrastructure/lan/.env
+infrastructure/lan/variables.env
+infrastructure/lan/secrets/
+
+# Database dumps
+infrastructure/dumps/
+
+# Screenshots
+*.png
+
+# Sisyphus internal state
+.sisyphus/
