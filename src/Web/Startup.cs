@@ -88,7 +88,7 @@ namespace Web
 
             var connectionString = Configuration.GetValue<string>("DOTNET_POSTGRES_CON_STRING");
             services.AddDbContext<DiscmanDbContext>(options =>
-                options.UseNpgsql(connectionString));
+                options.UseNpgsql(connectionString, o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
             
             services.AddSingleton<LeaderboardCache>();
             services.AddSingleton<UserStatsCache>();

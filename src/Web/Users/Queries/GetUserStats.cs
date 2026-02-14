@@ -39,11 +39,13 @@ namespace Web.Users.Queries
 
         private async Task<UserStats> CalculateUserStats(string username, DateTime since, int includeMonths)
         {
+            var sinceUtc = DateTime.SpecifyKind(since, DateTimeKind.Utc);
+            var monthsCutoff = DateTime.UtcNow.Date.AddMonths(-includeMonths);
             var rounds = await _dbContext.Rounds
                 .Where(r => !r.Deleted)
                 .Where(r => r.PlayerScores.Any(s => s.PlayerName == username))
-                .Where(r => r.StartTime > since)
-                .Where(r => includeMonths == default || r.StartTime > DateTime.Today.AddMonths(-includeMonths))
+                .Where(r => r.StartTime > sinceUtc)
+                .Where(r => includeMonths == default || r.StartTime > monthsCutoff)
                 .ToListAsync();
 
             var holesWithDetails = rounds.PlayerHolesWithDetails(username);

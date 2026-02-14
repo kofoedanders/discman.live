@@ -46,7 +46,7 @@ namespace Web.Courses.Queries
             {
 
                 courses = await _dbContext.Courses
-                                .Where(c => c.Name.Contains(request.Filter, StringComparison.OrdinalIgnoreCase))
+                                .Where(c => EF.Functions.ILike(c.Name, "%" + request.Filter + "%"))
                                 .OrderByDescending(c => c.CreatedAt)
                                 .ThenByDescending(c => c.Name)
                                 .ToListAsync(cancellationToken);

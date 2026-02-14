@@ -55,7 +55,7 @@ namespace Web.Users
                     .Where(r => r.PlayerScores.Any(p => p.PlayerName == user.Username))
                     .Where(r => !r.Deleted)
                     .Where(r => r.IsCompleted)
-                    .Where(r => r.StartTime > DateTime.Today.AddMonths(-6))
+                    .Where(r => r.StartTime > DateTime.UtcNow.Date.AddMonths(-6))
                     .OrderByDescending(r => r.StartTime)
                     .ToList();
 

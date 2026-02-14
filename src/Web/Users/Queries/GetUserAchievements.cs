@@ -29,6 +29,9 @@ namespace Web.Users.Queries
         {
             var user = await _dbContext.Users.SingleAsync(u => u.Username == request.Username, cancellationToken);
 
+            if (user.Achievements is null || !user.Achievements.Any())
+                return new List<AchievementAndCount>();
+
             var userAchievements = user
                 .Achievements
                 .GroupBy(x => x.AchievementName)
