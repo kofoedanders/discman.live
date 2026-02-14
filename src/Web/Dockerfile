@@ -22,6 +22,8 @@ RUN npm install
 RUN npm run build
 RUN mkdir -p /app/out/wwwroot
 RUN cp -r build/* /app/out/wwwroot/
+RUN mkdir -p /app/out/ClientApp/build
+RUN cp -r build/* /app/out/ClientApp/build/
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
