@@ -1,0 +1,48 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    hostname: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: "pg_isready -U postgres"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    mem_limit: 512m
+    restart: unless-stopped
+
+  web:
+    image: sp1nakr/disclive:2.0
+    container_name: discmanweb
+    restart: unless-stopped
+    env_file:
+      - ./variables.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    volumes:
+      - ./secrets/cloudflared_tunnel_token:/run/secrets/tunnel_token:ro
+    command: tunnel --no-autoupdate run --token-file /run/secrets/tunnel_token
+    depends_on:
+      - web
+
+volumes:
+  db-data:
