@@ -48,7 +48,7 @@ function ActiveRoundCard() {
   return (
     <button
       onClick={() => navigate(`/rounds/${round.id}`)}
-      className="w-full p-4 rounded-xl bg-[var(--color-surface)] border-2 border-[var(--color-border)] text-left active:opacity-80"
+      className="w-full p-4 rounded-xl bg-gradient-to-r from-[var(--color-surface)] to-[var(--color-gradient-end)] shadow-md shadow-[var(--color-shadow)] text-left active:scale-[0.98] transition-transform"
     >
       <div className="flex items-center justify-between mb-1">
         <span className="font-bold text-lg text-[var(--color-text)]">
@@ -82,7 +82,7 @@ function RecentRoundsList() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {recentRounds.map((r) => {
         const myScore = r.playerScores[0];
         const total = myScore
@@ -91,27 +91,32 @@ function RecentRoundsList() {
               return acc + s.relativeToPar;
             }, 0)
           : 0;
+          
+        const dotColor = total < 0 ? "bg-[var(--color-birdie)]" : total > 0 ? "bg-[var(--color-bogey)]" : "bg-[var(--color-par)]";
 
         return (
           <button
             key={r.id}
             onClick={() => navigate(`/rounds/${r.id}`)}
-            className="w-full flex items-center justify-between p-3 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] active:opacity-80"
+            className="w-full flex items-center justify-between p-4 rounded-xl bg-[var(--color-surface)] shadow-sm shadow-[var(--color-shadow)] active:scale-[0.98] transition-transform"
           >
             <div className="text-left">
               <p className="text-sm font-bold text-[var(--color-text)]">
                 {r.courseName}
               </p>
-              <p className="text-xs text-[var(--color-text-muted)]">
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                 {new Date(r.startTime).toLocaleDateString()} ·{" "}
                 {r.playerScores.length} players
               </p>
             </div>
-            <span
-              className={`text-lg font-bold ${scoreColorClass(total)}`}
-            >
-              {formatRelativeToPar(total)}
-            </span>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+              <span
+                className={`text-lg font-bold ${scoreColorClass(total)}`}
+              >
+                {formatRelativeToPar(total)}
+              </span>
+            </div>
           </button>
         );
       })}
@@ -146,9 +151,9 @@ function LoggedInLanding() {
   }, [userDetails?.activeRound, fetchActiveRound]);
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--color-bg)]">
-      <header className="flex items-center justify-between px-4 py-3 bg-[var(--color-navbar)] border-b-2 border-[var(--color-border)]">
-        <span className="text-lg font-bold text-[var(--color-text)]">
+    <div className="flex-1 flex flex-col bg-[var(--color-bg)] h-full">
+      <header className="flex items-center justify-between px-4 py-4 bg-[var(--color-navbar)] shadow-[0_1px_3px_var(--color-shadow)] z-10">
+        <span className="text-xl font-bold text-[var(--color-text)]">
           🥏 Discman
         </span>
         <button
@@ -159,11 +164,11 @@ function LoggedInLanding() {
         </button>
       </header>
 
-      <div className="flex-1 px-4 py-4 space-y-6 overflow-y-auto pb-20">
+      <div className="flex-1 px-4 py-6 space-y-8 overflow-y-auto pb-24">
         <ActiveRoundCard />
 
         <section>
-          <h2 className="text-base font-bold text-[var(--color-text)] mb-3">
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">
             Recent Rounds
           </h2>
           <RecentRoundsList />
@@ -172,7 +177,7 @@ function LoggedInLanding() {
 
       <button
         onClick={() => navigate("/new-round")}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white text-2xl font-bold shadow-lg border-2 border-[var(--color-button-border)] active:opacity-80 flex items-center justify-center"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white text-3xl shadow-xl shadow-[var(--color-shadow-lg)] active:scale-90 transition-transform flex items-center justify-center pb-1"
       >
         +
       </button>

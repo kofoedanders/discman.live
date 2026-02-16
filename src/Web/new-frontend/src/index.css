@@ -19,6 +19,35 @@
   --color-accent: #3a5a40;
   --color-button-bg: #fefae0;
   --color-button-border: #2a2a2a;
+  
+  --color-gradient-start: #e9edc9;
+  --color-gradient-end: #ccd5ae;
+  --color-surface-hover: #f0e5c9;
+  --color-shadow: rgba(58, 90, 64, 0.12);
+  --color-shadow-lg: rgba(58, 90, 64, 0.18);
+  --color-accent-light: rgba(58, 90, 64, 0.08);
+  --color-accent-glow: rgba(58, 90, 64, 0.25);
+  --color-destructive: #dc2626;
+}
+
+button, a, [role="button"] {
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
 }
 
 * {

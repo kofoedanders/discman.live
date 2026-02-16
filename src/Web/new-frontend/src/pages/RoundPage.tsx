@@ -14,6 +14,7 @@ import WaitingSheet from "../components/round/WaitingSheet";
 import ScorecardOverlay from "../components/round/ScorecardOverlay";
 import StatsDialog from "../components/round/StatsDialog";
 import RoundSummary from "../components/round/RoundSummary";
+import RoundMenu from "../components/round/RoundMenu";
 
 export default function RoundPage() {
   const { roundId } = useParams<{ roundId: string }>();
@@ -23,11 +24,13 @@ export default function RoundPage() {
 
   const round = useRoundStore((s) => s.round);
   const activeHoleIndex = useRoundStore((s) => s.activeHoleIndex);
+  const setActiveHole = useRoundStore((s) => s.setActiveHole);
   const currentPace = useRoundStore((s) => s.currentPace);
   const playerCourseStats = useRoundStore((s) => s.playerCourseStats);
   const finishedRoundStats = useRoundStore((s) => s.finishedRoundStats);
   const isLoading = useRoundStore((s) => s.isLoading);
   const scorecardOpen = useRoundStore((s) => s.scorecardOpen);
+  const editHole = useRoundStore((s) => s.editHole);
   const fetchRound = useRoundStore((s) => s.fetchRound);
   const fetchPaceData = useRoundStore((s) => s.fetchPaceData);
   const fetchCourseStats = useRoundStore((s) => s.fetchCourseStats);
@@ -35,11 +38,14 @@ export default function RoundPage() {
   const setScore = useRoundStore((s) => s.setScore);
   const setScorecardOpen = useRoundStore((s) => s.setScorecardOpen);
   const clearRound = useRoundStore((s) => s.clearRound);
+  const goToNextPersonalHole = useRoundStore((s) => s.goToNextPersonalHole);
+  const setEditHole = useRoundStore((s) => s.setEditHole);
 
   const [strokeBuffer, setStrokeBuffer] = useState<StrokeOutcome[]>([]);
   const [strokeBufferHole, setStrokeBufferHole] = useState(activeHoleIndex);
   const [statsOpen, setStatsOpen] = useState(false);
   const [waitingDismissed, setWaitingDismissed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const effectiveStrokeBuffer = useMemo(
     () => (strokeBufferHole !== activeHoleIndex ? [] : strokeBuffer),
@@ -49,6 +55,13 @@ export default function RoundPage() {
     () => (strokeBufferHole !== activeHoleIndex ? false : waitingDismissed),
     [strokeBufferHole, activeHoleIndex, waitingDismissed],
   );
+  
+  useEffect(() => {
+    if (editHole) {
+      setStrokeBuffer([]);
+      setStrokeBufferHole(activeHoleIndex);
+    }
+  }, [editHole, activeHoleIndex]);
 
   useEffect(() => {
     if (!roundId) return;
@@ -75,9 +88,10 @@ export default function RoundPage() {
     : undefined;
 
   const holeAlreadyScored = myScore ? myScore.strokes > 0 : false;
+  const showPostScoreControls = holeAlreadyScored && !editHole;
 
   const currentStrokeSpecs = myScore
-    ? holeAlreadyScored
+    ? holeAlreadyScored && !editHole
       ? myScore.strokeSpecs
       : effectiveStrokeBuffer.map((o) => ({ outcome: o, putDistance: null }))
     : [];
@@ -87,8 +101,8 @@ export default function RoundPage() {
     (h) => h.holeNumber === (myScore?.hole.number ?? 0),
   );
 
-  const previousScores: number[] = currentHoleStats
-    ? currentHoleStats.last10Scores.slice(0, 5).map((s) => s.strokes)
+  const previousScores: HoleScore[] = currentHoleStats
+    ? currentHoleStats.last10Scores.slice(0, 5)
     : [];
 
   const waitingFor: string[] =
@@ -105,7 +119,8 @@ export default function RoundPage() {
 
   const handleOutcome = useCallback(
     (outcome: StrokeOutcome) => {
-      if (!round || !roundId || holeAlreadyScored) return;
+      if (!round || !roundId) return;
+      if (holeAlreadyScored && !editHole) return;
 
       if (outcome === "Basket") {
         const finalOutcomes = [...effectiveStrokeBuffer, outcome];
@@ -117,14 +132,14 @@ export default function RoundPage() {
         setStrokeBufferHole(activeHoleIndex);
       }
     },
-    [round, roundId, holeAlreadyScored, effectiveStrokeBuffer, activeHoleIndex, username, setScore],
+    [round, roundId, holeAlreadyScored, editHole, effectiveStrokeBuffer, activeHoleIndex, username, setScore],
   );
 
   const handleUndoLast = useCallback(() => {
-    if (holeAlreadyScored) return;
+    if (holeAlreadyScored && !editHole) return;
     setStrokeBuffer(effectiveStrokeBuffer.slice(0, -1));
     setStrokeBufferHole(activeHoleIndex);
-  }, [holeAlreadyScored, effectiveStrokeBuffer, activeHoleIndex]);
+  }, [holeAlreadyScored, editHole, effectiveStrokeBuffer, activeHoleIndex]);
 
   const handleSelectPlayer = useCallback(() => {}, []);
 
@@ -149,9 +164,10 @@ export default function RoundPage() {
   }
 
   const currentHole = myScore?.hole;
+  const totalHoles = round.playerScores[0]?.scores.length ?? 18;
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--color-bg)] h-full">
+    <div className="flex-1 flex flex-col bg-[var(--color-bg)] h-full relative">
       <StatusStrip
         holeNumber={currentHole?.number ?? activeHoleIndex + 1}
         holePar={currentHole?.par ?? 3}
@@ -159,6 +175,10 @@ export default function RoundPage() {
         currentPace={currentPace}
         holeStats={currentHoleStats}
         previousScores={previousScores}
+        activeHoleIndex={activeHoleIndex}
+        totalHoles={totalHoles}
+        setActiveHole={setActiveHole}
+        onMenuOpen={() => setMenuOpen(true)}
       />
 
       <div className="flex-1 flex flex-col overflow-y-auto">
@@ -175,10 +195,28 @@ export default function RoundPage() {
         />
       </div>
 
-      <ScoringGrid
-        onOutcome={handleOutcome}
-        disabled={holeAlreadyScored}
-      />
+      {showPostScoreControls ? (
+        <div className="p-4 pb-6 flex gap-3 animate-slide-up">
+           <button 
+             onClick={() => setEditHole(true)}
+             className="flex-1 py-4 px-2 rounded-2xl border-2 border-[var(--color-accent)] text-[var(--color-accent)] font-bold active:scale-[0.98] shadow-sm bg-[var(--color-bg)]"
+           >
+             Edit Score
+           </button>
+           <button 
+             onClick={() => goToNextPersonalHole(username)}
+             className="flex-[2] py-4 px-2 rounded-2xl bg-[var(--color-accent)] text-white font-bold active:scale-[0.98] shadow-lg shadow-[var(--color-shadow)] flex items-center justify-center gap-2"
+           >
+             Next Hole 
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+           </button>
+        </div>
+      ) : (
+        <ScoringGrid
+          onOutcome={handleOutcome}
+          disabled={holeAlreadyScored && !editHole}
+        />
+      )}
 
       <BottomBar
         onScorecard={() => setScorecardOpen(true)}
@@ -209,6 +247,14 @@ export default function RoundPage() {
         <StatsDialog
           stats={finishedRoundStats}
           onClose={() => setStatsOpen(false)}
+        />
+      )}
+      
+      {menuOpen && roundId && (
+        <RoundMenu 
+          roundId={roundId}
+          currentHoleNumber={currentHole?.number ?? activeHoleIndex + 1}
+          onClose={() => setMenuOpen(false)}
         />
       )}
     </div>

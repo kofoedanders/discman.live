@@ -34,29 +34,29 @@ function StepIndicator({ step }: { step: Step }) {
   const currentIdx = steps.indexOf(step);
 
   return (
-    <div className="flex items-center justify-center gap-2 py-3">
+    <div className="flex items-center justify-center gap-2 py-6">
       {steps.map((s, i) => (
         <div key={s} className="flex items-center gap-2">
           <div
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-sm transition-all ${
               i <= currentIdx
-                ? "bg-[var(--color-accent)] text-white border-[var(--color-accent)]"
-                : "bg-[var(--color-bg)] text-[var(--color-text-muted)] border-[var(--color-border)]"
+                ? "bg-gradient-to-br from-[var(--color-accent)] to-[var(--color-fairway)] text-white scale-110"
+                : "bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
             }`}
           >
             {i + 1}
           </div>
           <span
-            className={`text-xs font-semibold ${
-              i <= currentIdx ? "text-[var(--color-text)]" : "text-[var(--color-text-muted)]"
+            className={`text-xs font-bold uppercase tracking-wider ${
+              i <= currentIdx ? "text-[var(--color-accent)]" : "text-[var(--color-text-muted)]"
             }`}
           >
             {labels[i]}
           </span>
           {i < steps.length - 1 && (
             <div
-              className={`w-6 h-0.5 ${
-                i < currentIdx ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"
+              className={`w-8 h-1 rounded-full ${
+                i < currentIdx ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)] opacity-20"
               }`}
             />
           )}
@@ -145,32 +145,33 @@ function CourseStep({
                 <button
                   key={layout.id}
                   onClick={() => onSelect(layout)}
-                  className={`w-full text-left p-3 rounded-lg border-2 active:opacity-80 ${
+                  className={`w-full text-left p-4 rounded-xl border-l-4 shadow-sm shadow-[var(--color-shadow)] transition-all active:scale-[0.98] ${
                     selected?.id === layout.id
-                      ? "border-[var(--color-accent)] bg-[var(--color-surface)]"
-                      : "border-[var(--color-border)] bg-[var(--color-bg)]"
+                      ? "border-l-[var(--color-accent)] bg-gradient-to-r from-[var(--color-surface)] to-[var(--color-bg)] ring-1 ring-[var(--color-accent)]/20"
+                      : "border-l-transparent bg-[var(--color-surface)]"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-[var(--color-text)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base font-bold text-[var(--color-text)]">
                       {layout.layout || "Default"}
                     </span>
-                    <span className="text-xs text-[var(--color-text-muted)]">
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--color-navbar)] text-xs font-semibold text-[var(--color-text-muted)]">
                       {layout.holes.length} holes
                     </span>
                   </div>
-                  <div className="flex gap-1 flex-wrap">
+                  <div className="flex gap-1 flex-wrap mb-2">
                     {layout.holes.map((h) => (
                       <span
                         key={h.number}
-                        className="text-[10px] w-5 h-5 flex items-center justify-center rounded bg-[var(--color-navbar)] text-[var(--color-text-muted)] font-medium"
+                        className="text-[10px] w-5 h-5 flex items-center justify-center rounded bg-[var(--color-bg)] text-[var(--color-text-muted)] font-medium border border-[var(--color-border)]/10"
                       >
                         {h.par}
                       </span>
                     ))}
                   </div>
                   {layout.courseStats?.roundsOnCourse ? (
-                    <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    <p className="text-xs text-[var(--color-text-muted)] mt-1 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]/40" />
                       {layout.courseStats.roundsOnCourse} rounds played
                       {layout.courseStats.previousRound &&
                         ` · Last ${new Date(layout.courseStats.previousRound).toLocaleDateString()}`}
@@ -287,8 +288,9 @@ function PlayersStep({
             <button
               key={p}
               onClick={() => onTogglePlayer(p)}
-              className="px-3 py-1.5 rounded-full bg-[var(--color-accent)] text-white text-sm font-semibold active:opacity-80"
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-fairway)] text-white text-sm font-bold shadow-md shadow-[var(--color-shadow)] active:scale-95 transition-transform flex items-center gap-2"
             >
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">👤</span>
               {p} ✕
             </button>
           ))}
@@ -360,36 +362,42 @@ function ConfirmStep({
   players: string[];
 }) {
   return (
-    <div className="flex-1 flex flex-col gap-4">
-      <div className="p-4 rounded-xl bg-[var(--color-surface)] border-2 border-[var(--color-border)]">
-        <h3 className="text-lg font-bold text-[var(--color-text)] mb-1">
-          {course.name}
+    <div className="flex-1 flex flex-col gap-6 pt-4">
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-[var(--color-surface)] to-[var(--color-bg)] border-l-4 border-l-[var(--color-accent)] shadow-md shadow-[var(--color-shadow)]">
+        <h3 className="text-xl font-bold text-[var(--color-text)] mb-2 flex items-center gap-2">
+          ⛳️ {course.name}
         </h3>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          {course.layout || "Default"} · {course.holes.length} holes ·
-          Par{" "}
-          {course.holes.reduce((sum, h) => sum + h.par, 0)}
+        <p className="text-sm font-medium text-[var(--color-text-muted)] flex items-center gap-2">
+          <span className="bg-[var(--color-accent-light)] text-[var(--color-accent)] px-2 py-0.5 rounded-md">
+            {course.layout || "Default"}
+          </span>
+          <span>·</span>
+          <span>{course.holes.length} holes</span>
+          <span>·</span>
+          <span>Par {course.holes.reduce((sum, h) => sum + h.par, 0)}</span>
         </p>
       </div>
 
       <div>
-        <h3 className="text-sm font-bold text-[var(--color-text)] mb-2">
+        <h3 className="text-sm font-bold text-[var(--color-text)] mb-3 uppercase tracking-wider">
           Players ({players.length})
         </h3>
         <div className="flex flex-wrap gap-2">
           {players.map((p) => (
             <span
               key={p}
-              className="px-3 py-1.5 rounded-full bg-[var(--color-accent)] text-white text-sm font-semibold"
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-[var(--color-accent)] to-[var(--color-fairway)] text-white text-sm font-bold shadow-sm flex items-center gap-2"
             >
+              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-xs">👤</span>
               {p}
             </span>
           ))}
         </div>
       </div>
 
-      <div className="p-3 rounded-lg bg-[var(--color-navbar)] border border-[var(--color-border)]">
-        <p className="text-sm text-[var(--color-text)]">
+      <div className="p-4 rounded-xl bg-[var(--color-navbar)]/50 border border-[var(--color-border)]/20">
+        <p className="text-sm text-[var(--color-text)] flex items-center gap-2">
+          <span className="text-xl">📝</span>
           <span className="font-bold">Scoring:</span> Detailed live
         </p>
       </div>
@@ -452,13 +460,13 @@ export default function NewRound() {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--color-bg)]">
-      <header className="flex items-center justify-between px-4 py-3 bg-[var(--color-navbar)] border-b-2 border-[var(--color-border)]">
+    <div className="flex-1 flex flex-col bg-[var(--color-bg)] h-full">
+      <header className="flex items-center justify-between px-4 py-4 bg-[var(--color-navbar)] shadow-[0_1px_3px_var(--color-shadow)] z-10">
         <button
           onClick={handleBack}
-          className="text-sm font-semibold text-[var(--color-text)] active:opacity-60"
+          className="text-sm font-bold text-[var(--color-text)] active:opacity-60 flex items-center gap-1"
         >
-          ← Back
+          <span className="text-lg">←</span> Back
         </button>
         <span className="text-base font-bold text-[var(--color-text)]">
           New Round
@@ -486,17 +494,17 @@ export default function NewRound() {
         )}
       </div>
 
-      <div className="px-4 py-3 bg-[var(--color-navbar)] border-t-2 border-[var(--color-border)]">
+      <div className="px-4 py-6 bg-gradient-to-t from-[var(--color-bg)] to-transparent">
         <button
           onClick={handleNext}
           disabled={!canProceed || starting}
-          className="w-full py-3 rounded-lg bg-[var(--color-accent)] text-white text-base font-bold border-2 border-[var(--color-button-border)] active:opacity-80 disabled:opacity-40"
+          className="w-full py-4 rounded-xl bg-[var(--color-accent)] text-white text-lg font-bold shadow-lg shadow-[var(--color-shadow-lg)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:shadow-none"
         >
           {step === "confirm"
             ? starting
               ? "Starting..."
-              : "Start Round"
-            : "Next"}
+              : "Start Round 🚀"
+            : "Next →"}
         </button>
       </div>
     </div>
