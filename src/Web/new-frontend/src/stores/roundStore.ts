@@ -25,7 +25,7 @@ interface RoundState {
   isLoading: boolean;
 
   fetchRound: (roundId: string) => Promise<void>;
-  fetchActiveRound: () => Promise<void>;
+  fetchActiveRound: (activeRoundId?: string | null) => Promise<void>;
   fetchRecentRounds: (username: string, count?: number) => Promise<void>;
   fetchPaceData: (roundId: string) => Promise<void>;
   fetchCourseStats: (roundId: string) => Promise<void>;
@@ -135,10 +135,11 @@ export const useRoundStore = create<RoundState>((set, get) => ({
     }
   },
 
-  fetchActiveRound: async () => {
+  fetchActiveRound: async (activeRoundId?: string | null) => {
+    if (!activeRoundId) return;
     try {
-      const round = await api.getActiveRound();
-      if (round) {
+      const round = await api.getRound(activeRoundId);
+      if (round && !round.isCompleted) {
         set({
           round,
           activeHoleIndex: getNextUncompletedHole(round),
@@ -152,8 +153,8 @@ export const useRoundStore = create<RoundState>((set, get) => ({
 
   fetchRecentRounds: async (username, count = 5) => {
     try {
-      const rounds = await api.getUserRounds(username, count);
-      set({ recentRounds: rounds });
+      const result = await api.getUserRounds(username, 1, count);
+      set({ recentRounds: result.rounds });
     } catch {
       /* non-critical */
     }

@@ -121,6 +121,7 @@ function RecentRoundsList() {
 
 function LoggedInLanding() {
   const user = useAuthStore((s) => s.user);
+  const userDetails = useAuthStore((s) => s.userDetails);
   const logout = useAuthStore((s) => s.logout);
   const fetchActiveRound = useRoundStore((s) => s.fetchActiveRound);
   const fetchRecentRounds = useRoundStore((s) => s.fetchRecentRounds);
@@ -128,7 +129,6 @@ function LoggedInLanding() {
 
   useEffect(() => {
     connectHub();
-    fetchActiveRound();
     fetchUserDetails();
     if (user?.username) {
       fetchRecentRounds(user.username, 5);
@@ -136,7 +136,13 @@ function LoggedInLanding() {
     return () => {
       disconnectHub();
     };
-  }, [user?.username, fetchActiveRound, fetchRecentRounds, fetchUserDetails]);
+  }, [user?.username, fetchRecentRounds, fetchUserDetails]);
+
+  useEffect(() => {
+    if (userDetails?.activeRound) {
+      fetchActiveRound(userDetails.activeRound);
+    }
+  }, [userDetails?.activeRound, fetchActiveRound]);
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--color-bg)]">

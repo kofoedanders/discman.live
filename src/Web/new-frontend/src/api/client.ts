@@ -88,12 +88,8 @@ export const api = {
     return request<Round>(`/api/rounds/${roundId}`);
   },
 
-  getActiveRound() {
-    return request<Round>("/api/rounds/active");
-  },
-
-  getUserRounds(username: string, count = 5) {
-    return request<Round[]>(`/api/rounds?username=${username}&count=${count}`);
+  getUserRounds(username: string, page = 1, pageSize = 5) {
+    return request<PagedRounds>(`/api/rounds?username=${username}&page=${page}&pageSize=${pageSize}`);
   },
 
   getPagedRounds(username: string, page: number, pageSize = 8) {
