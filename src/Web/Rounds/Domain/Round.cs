@@ -70,12 +70,13 @@ namespace Web.Rounds
 
         private static List<PlayerScore> GenerateEmptyScoreCard(List<Hole> courseHoles, List<User> players)
         {
+            var orderedHoles = courseHoles.OrderBy(h => h.Number).ToList();
             return players
                 .Select(p => new PlayerScore
                 {
                     PlayerName = p.Username,
                     PlayerEmoji = p.Emoji,
-                    Scores = courseHoles.Select(h => new HoleScore { Hole = new Hole(h.Number, h.Par, h.Distance, h.Rating, h.Average) }).ToList()
+                    Scores = orderedHoles.Select(h => new HoleScore { Hole = new Hole(h.Number, h.Par, h.Distance, h.Rating, h.Average) }).ToList()
                 }).ToList();
         }
 

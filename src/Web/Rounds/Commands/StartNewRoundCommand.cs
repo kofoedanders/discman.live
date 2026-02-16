@@ -45,7 +45,7 @@ namespace Web.Rounds.Commands
             if (!playerNames.Any()) playerNames.Add(username);
 
             var course = _dbContext.Courses
-                .Include(c => c.Holes)
+                .Include(c => c.Holes.OrderBy(h => h.Number))
                 .SingleOrDefault(x => x.Id == request.CourseId);
 
             var players = _dbContext.Users

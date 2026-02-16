@@ -57,7 +57,8 @@ namespace Web.Courses
                     {
                         var average = roundsOnCourse
                             .SelectMany(r => r.PlayerScores
-                                .Select(s => s.Scores[courseHole.Number - 1]))
+                                .Select(s => s.Scores.FirstOrDefault(hs => hs.Hole.Number == courseHole.Number)))
+                            .Where(hs => hs != null)
                             .Average(s => s.RelativeToPar);
                         courseHole.Average = average;
                     }

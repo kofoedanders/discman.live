@@ -2,6 +2,7 @@ using AutoMapper;
 using Web.Common.Mapping;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Web.Courses.Queries
 {
@@ -22,8 +23,10 @@ namespace Web.Courses.Queries
 
         public void Mapping(Profile profile)
         {
-            profile.CreateMap<Course, CourseVm>().ForMember(d => d.CourseStats, opt => opt.Ignore());
-            profile.CreateMap<Course, CourseVm>().ForMember(d => d.Distance, opt => opt.Ignore());
+            profile.CreateMap<Course, CourseVm>()
+                .ForMember(d => d.CourseStats, opt => opt.Ignore())
+                .ForMember(d => d.Distance, opt => opt.Ignore())
+                .ForMember(d => d.Holes, opt => opt.MapFrom(s => s.Holes.OrderBy(h => h.Number)));
         }
 
     }
