@@ -46,4 +46,10 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <Target Name="BuildNewFrontend" BeforeTargets="Build">
+    <Exec Command="npm install --cache /tmp/npm-cache" WorkingDirectory="new-frontend" />
+    <Exec Command="npm run build" WorkingDirectory="new-frontend" />
+  </Target>
+
 </Project>

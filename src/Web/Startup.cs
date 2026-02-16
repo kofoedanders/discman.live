@@ -190,6 +190,27 @@ namespace Web
                     adminApp.UseEndpoints(e => { e.MapRazorPages(); });
                 });
 
+            // New mobile-first frontend at /new
+            var newFrontendPath = Path.Combine(env.ContentRootPath, "new-frontend", "dist");
+            if (Directory.Exists(newFrontendPath))
+            {
+                var newFrontendFileProvider = new PhysicalFileProvider(newFrontendPath);
+                app.Map("/new", newApp =>
+                {
+                    newApp.UseStaticFiles(new StaticFileOptions
+                    {
+                        FileProvider = newFrontendFileProvider,
+                    });
+                    newApp.Run(async context =>
+                    {
+                        context.Response.ContentType = "text/html";
+                        var fileInfo = newFrontendFileProvider.GetFileInfo("index.html");
+                        await using var stream = fileInfo.CreateReadStream();
+                        await stream.CopyToAsync(context.Response.Body);
+                    });
+                });
+            }
+
             app.UseSpa(spa =>
             {
                 spa.Options.SourcePath = "ClientApp";
