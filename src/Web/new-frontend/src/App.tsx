@@ -4,6 +4,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoundPage from "./pages/RoundPage";
+import NewRound from "./pages/NewRound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -23,6 +24,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <RoundPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/new-round"
+          element={
+            <ProtectedRoute>
+              <NewRound />
             </ProtectedRoute>
           }
         />

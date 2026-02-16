@@ -184,6 +184,38 @@ export interface UserAchievement {
   roundId: string;
 }
 
+// ─── Course Types ───
+
+export interface CourseHole {
+  number: number;
+  par: number;
+  distance: number;
+  average: number;
+  rating: number;
+}
+
+export interface CourseStats {
+  roundsOnCourse: number;
+  previousRound: string | null;
+}
+
+export interface CourseCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+export interface CourseVm {
+  id: string;
+  name: string;
+  createdAt: string;
+  layout: string;
+  coordinates: CourseCoordinates;
+  holes: CourseHole[];
+  admins: string[];
+  courseStats: CourseStats | null;
+  distance: number;
+}
+
 // ─── Paged Results ───
 
 export interface PagedRounds {

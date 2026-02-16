@@ -126,6 +126,7 @@ function LoggedInLanding() {
   const fetchActiveRound = useRoundStore((s) => s.fetchActiveRound);
   const fetchRecentRounds = useRoundStore((s) => s.fetchRecentRounds);
   const fetchUserDetails = useAuthStore((s) => s.fetchUserDetails);
+  const navigate = useNavigate();
 
   useEffect(() => {
     connectHub();
@@ -158,7 +159,7 @@ function LoggedInLanding() {
         </button>
       </header>
 
-      <div className="flex-1 px-4 py-4 space-y-6 overflow-y-auto">
+      <div className="flex-1 px-4 py-4 space-y-6 overflow-y-auto pb-20">
         <ActiveRoundCard />
 
         <section>
@@ -168,6 +169,13 @@ function LoggedInLanding() {
           <RecentRoundsList />
         </section>
       </div>
+
+      <button
+        onClick={() => navigate("/new-round")}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white text-2xl font-bold shadow-lg border-2 border-[var(--color-button-border)] active:opacity-80 flex items-center justify-center"
+      >
+        +
+      </button>
     </div>
   );
 }

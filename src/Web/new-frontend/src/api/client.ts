@@ -10,6 +10,7 @@ import type {
   CreateRoundCommand,
   CompleteRoundCommand,
   ScoreMode,
+  CourseVm,
 } from "../types";
 
 class ApiError extends Error {
@@ -150,5 +151,9 @@ export const api = {
 
   searchUsers(searchString: string) {
     return request<string[]>(`/api/users?searchString=${searchString}`);
+  },
+
+  getCourses(filter = "", latitude = 0, longitude = 0) {
+    return request<CourseVm[]>(`/api/courses?filter=${encodeURIComponent(filter)}&latitude=${latitude}&longitude=${longitude}`);
   },
 };
