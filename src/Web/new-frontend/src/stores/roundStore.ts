@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { api } from "../api/client";
 import { calculatePace } from "../utils/paceUtils";
+import { useAuthStore } from "./authStore";
 
 interface RoundState {
   round: Round | null;
@@ -227,6 +228,7 @@ export const useRoundStore = create<RoundState>((set, get) => ({
   deleteRound: async (roundId) => {
     await api.deleteRound(roundId);
     set({ round: null });
+    useAuthStore.getState().clearActiveRound();
   },
 
   skipHole: async (roundId, holeNumber) => {

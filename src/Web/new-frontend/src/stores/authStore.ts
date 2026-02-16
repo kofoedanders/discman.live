@@ -13,6 +13,7 @@ interface AuthState {
   logout: () => void;
   loadFromStorage: () => void;
   fetchUserDetails: () => Promise<void>;
+  clearActiveRound: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -70,6 +71,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ userDetails: details });
     } catch {
       /* details fetch is non-critical */
+    }
+  },
+
+  clearActiveRound: () => {
+    const { userDetails } = get();
+    if (userDetails) {
+      set({ userDetails: { ...userDetails, activeRound: null } });
     }
   },
 }));

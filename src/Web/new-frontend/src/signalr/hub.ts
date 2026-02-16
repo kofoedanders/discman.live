@@ -1,6 +1,7 @@
 import * as signalR from "@microsoft/signalr";
 import type { Round } from "../types";
 import { useRoundStore } from "../stores/roundStore";
+import { normalizeRound } from "../api/client";
 
 let connection: signalR.HubConnection | null = null;
 
@@ -31,12 +32,12 @@ export function connectHub(): void {
     .build();
 
   connection.on("roundUpdated", (roundJson: string) => {
-    const round: Round = JSON.parse(roundJson);
+    const round: Round = normalizeRound(JSON.parse(roundJson));
     useRoundStore.getState().onRoundUpdated(round);
   });
 
   connection.on("newRoundCreated", (roundJson: string) => {
-    const round: Round = JSON.parse(roundJson);
+    const round: Round = normalizeRound(JSON.parse(roundJson));
     useRoundStore.getState().onRoundUpdated(round);
   });
 

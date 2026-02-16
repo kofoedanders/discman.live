@@ -11,7 +11,68 @@ import type {
   CompleteRoundCommand,
   ScoreMode,
   CourseVm,
+  StrokeOutcome,
+  StrokeSpec,
 } from "../types";
+
+// The backend C# enum serializes StrokeOutcome as integers.
+// Map them back to the string names our UI expects.
+const STROKE_OUTCOME_MAP: Record<number, StrokeOutcome> = {
+  0: "Fairway",
+  1: "Rough",
+  2: "OB",
+  3: "Circle2",
+  4: "Circle1",
+  5: "Basket",
+};
+
+function normalizeStrokeOutcome(outcome: string | number): StrokeOutcome {
+  if (typeof outcome === "number") {
+    return STROKE_OUTCOME_MAP[outcome] ?? "Fairway";
+  }
+  return outcome as StrokeOutcome;
+}
+
+function normalizeStrokeSpec(spec: StrokeSpec): void {
+  spec.outcome = normalizeStrokeOutcome(spec.outcome);
+}
+
+export function normalizeRound(round: Round): Round {
+  for (const ps of round.playerScores) {
+    for (const score of ps.scores) {
+      if (!score.strokeSpecs) {
+        score.strokeSpecs = [];
+        continue;
+      }
+      for (const spec of score.strokeSpecs) {
+        normalizeStrokeSpec(spec);
+      }
+    }
+  }
+  return round;
+}
+
+function normalizeCourseStats(stats: PlayerCourseStats[]): PlayerCourseStats[] {
+  for (const stat of stats) {
+    if (stat.holeStats) {
+      for (const hs of stat.holeStats) {
+        if (hs.bestScore?.strokeSpecs) {
+          for (const spec of hs.bestScore.strokeSpecs) {
+            normalizeStrokeSpec(spec);
+          }
+        }
+        if (hs.last10Scores) {
+          for (const score of hs.last10Scores) {
+            for (const spec of score.strokeSpecs) {
+              normalizeStrokeSpec(spec);
+            }
+          }
+        }
+      }
+    }
+  }
+  return stats;
+}
 
 class ApiError extends Error {
   status: number;
@@ -85,30 +146,37 @@ export const api = {
     return request<UserDetails>("/api/users/details");
   },
 
-  getRound(roundId: string) {
-    return request<Round>(`/api/rounds/${roundId}`);
+  async getRound(roundId: string) {
+    const round = await request<Round>(`/api/rounds/${roundId}`);
+    return normalizeRound(round);
   },
 
-  getUserRounds(username: string, page = 1, pageSize = 5) {
-    return request<PagedRounds>(`/api/rounds?username=${username}&page=${page}&pageSize=${pageSize}`);
+  async getUserRounds(username: string, page = 1, pageSize = 5) {
+    const result = await request<PagedRounds>(`/api/rounds?username=${username}&page=${page}&pageSize=${pageSize}`);
+    result.rounds = result.rounds.map(normalizeRound);
+    return result;
   },
 
-  getPagedRounds(username: string, page: number, pageSize = 8) {
-    return request<PagedRounds>(`/api/rounds?username=${username}&page=${page}&pageSize=${pageSize}`);
+  async getPagedRounds(username: string, page: number, pageSize = 8) {
+    const result = await request<PagedRounds>(`/api/rounds?username=${username}&page=${page}&pageSize=${pageSize}`);
+    result.rounds = result.rounds.map(normalizeRound);
+    return result;
   },
 
-  createRound(cmd: CreateRoundCommand) {
-    return request<Round>("/api/rounds", {
+  async createRound(cmd: CreateRoundCommand) {
+    const round = await request<Round>("/api/rounds", {
       method: "POST",
       body: JSON.stringify(cmd),
     });
+    return normalizeRound(round);
   },
 
-  updateScore(roundId: string, cmd: UpdatePlayerScoreCommand) {
-    return request<Round>(`/api/rounds/${roundId}/scores`, {
+  async updateScore(roundId: string, cmd: UpdatePlayerScoreCommand) {
+    const round = await request<Round>(`/api/rounds/${roundId}/scores`, {
       method: "PUT",
       body: JSON.stringify(cmd),
     });
+    return normalizeRound(round);
   },
 
   completeRound(roundId: string, cmd: CompleteRoundCommand) {
@@ -134,8 +202,9 @@ export const api = {
     return request<UserStats[]>(`/api/rounds/${roundId}/stats`);
   },
 
-  getCourseStats(roundId: string) {
-    return request<PlayerCourseStats[]>(`/api/rounds/${roundId}/courseStats`);
+  async getCourseStats(roundId: string) {
+    const stats = await request<PlayerCourseStats[]>(`/api/rounds/${roundId}/courseStats`);
+    return normalizeCourseStats(stats);
   },
 
   getPaceData(roundId: string) {
