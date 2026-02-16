@@ -244,3 +244,44 @@ export interface CreateRoundCommand {
 export interface CompleteRoundCommand {
   base64Signature: string;
 }
+
+export type FeedItemType =
+  | "Round"
+  | "Hole"
+  | "Achievement"
+  | "Tournament"
+  | "Friend"
+  | "User";
+
+export interface FeedItem {
+  itemType: FeedItemType;
+  id: string;
+  registeredAt: string;
+  subjects: string[];
+  courseName: string;
+  holeScore: number;
+  holeNumber: number;
+  roundScores: number[];
+  likes: string[];
+  action: string;
+  roundId: string;
+  achievementName: string;
+  tournamentId: string;
+  tournamentName: string;
+  friendName: string;
+}
+
+export interface Feed {
+  isLastPage: boolean;
+  feedItems: FeedItem[];
+}
+
+export interface LeaderboardPlayer {
+  username: string;
+  averageHoleScore: number;
+  courseAdjustedAverageScore: number;
+  roundCount: number;
+  elo: number;
+  birdieCount: number;
+  bogeyCount: number;
+}

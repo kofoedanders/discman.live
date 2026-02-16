@@ -5,6 +5,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RoundPage from "./pages/RoundPage";
 import NewRound from "./pages/NewRound";
+import FeedPage from "./pages/FeedPage";
+import LeadersPage from "./pages/LeadersPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -32,6 +34,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <NewRound />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/feed"
+          element={
+            <ProtectedRoute>
+              <FeedPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaders"
+          element={
+            <ProtectedRoute>
+              <LeadersPage />
             </ProtectedRoute>
           }
         />

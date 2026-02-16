@@ -22,9 +22,9 @@ namespace Web.Leaderboard
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetLeaderboard([FromQuery] bool onlyFriends, [FromQuery] int month = 0)
+        public async Task<IActionResult> GetLeaderboard([FromQuery] bool onlyFriends, [FromQuery] int month = 0, [FromQuery] int year = 0)
         {
-            var playersStats = await _mediator.Send(new GetLeaderboardQuery {OnlyFriends = onlyFriends, Month = month});
+            var playersStats = await _mediator.Send(new GetLeaderboardQuery {OnlyFriends = onlyFriends, Month = month, Year = year});
             return Ok(playersStats);
         }
 

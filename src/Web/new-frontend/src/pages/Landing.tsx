@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/authStore";
 import { useRoundStore } from "../stores/roundStore";
 import { connectHub, disconnectHub } from "../signalr/hub";
 import { formatRelativeToPar, scoreColorClass } from "../utils/scoring";
+import DashboardLayout from "../components/layout/DashboardLayout";
 
 function LoggedOutLanding() {
   return (
@@ -127,7 +128,6 @@ function RecentRoundsList() {
 function LoggedInLanding() {
   const user = useAuthStore((s) => s.user);
   const userDetails = useAuthStore((s) => s.userDetails);
-  const logout = useAuthStore((s) => s.logout);
   const fetchActiveRound = useRoundStore((s) => s.fetchActiveRound);
   const fetchRecentRounds = useRoundStore((s) => s.fetchRecentRounds);
   const fetchUserDetails = useAuthStore((s) => s.fetchUserDetails);
@@ -151,20 +151,8 @@ function LoggedInLanding() {
   }, [userDetails?.activeRound, fetchActiveRound]);
 
   return (
-    <div className="flex-1 flex flex-col bg-[var(--color-bg)] h-full">
-      <header className="flex items-center justify-between px-4 py-4 bg-[var(--color-navbar)] shadow-[0_1px_3px_var(--color-shadow)] z-10">
-        <span className="text-xl font-bold text-[var(--color-text)]">
-          🥏 Discman
-        </span>
-        <button
-          onClick={logout}
-          className="text-sm font-semibold text-[var(--color-text-muted)] active:opacity-60"
-        >
-          Log Out
-        </button>
-      </header>
-
-      <div className="flex-1 px-4 py-6 space-y-8 overflow-y-auto pb-24">
+    <DashboardLayout title="🥏 Discman">
+      <div className="space-y-8">
         <ActiveRoundCard />
 
         <section>
@@ -177,11 +165,11 @@ function LoggedInLanding() {
 
       <button
         onClick={() => navigate("/new-round")}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white text-3xl shadow-xl shadow-[var(--color-shadow-lg)] active:scale-90 transition-transform flex items-center justify-center pb-1"
+        className="fixed bottom-20 right-6 w-14 h-14 rounded-full bg-[var(--color-accent)] text-white text-3xl shadow-xl shadow-[var(--color-shadow-lg)] active:scale-90 transition-transform flex items-center justify-center pb-1 z-50"
       >
         +
       </button>
-    </div>
+    </DashboardLayout>
   );
 }
 

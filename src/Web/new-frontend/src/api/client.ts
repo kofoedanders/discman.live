@@ -13,6 +13,8 @@ import type {
   CourseVm,
   StrokeOutcome,
   StrokeSpec,
+  Feed,
+  LeaderboardPlayer,
 } from "../types";
 
 // The backend C# enum serializes StrokeOutcome as integers.
@@ -224,5 +226,29 @@ export const api = {
 
   getCourses(filter = "", latitude = 0, longitude = 0) {
     return request<CourseVm[]>(`/api/courses?filter=${encodeURIComponent(filter)}&latitude=${latitude}&longitude=${longitude}`);
+  },
+
+  getFeed(itemType = "", pageNumber = 1, pageSize = 10) {
+    const qs = new URLSearchParams({
+      itemType,
+      pageNumber: String(pageNumber),
+      pageSize: String(pageSize),
+    });
+    return request<Feed>(`/api/feeds?${qs.toString()}`);
+  },
+
+  toggleFeedLike(feedItemId: string) {
+    return request<void>(`/api/feeds/feedItems/${feedItemId}/like`, {
+      method: "PUT",
+    });
+  },
+
+  getLeaderboard(month = 0, year = 0) {
+    const qs = new URLSearchParams({
+      onlyFriends: "true",
+      month: String(month),
+      year: String(year),
+    });
+    return request<LeaderboardPlayer[]>(`/api/leaderboard?${qs.toString()}`);
   },
 };

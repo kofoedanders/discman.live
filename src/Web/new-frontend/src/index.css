@@ -70,3 +70,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain;
 }
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
