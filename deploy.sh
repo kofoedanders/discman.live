@@ -83,6 +83,14 @@ else
     exit 1
 fi
 
+step "Updating docker-compose.yml  →  ${IMAGE_TAG}"
+if ssh "$DOCKER_HOST" "sed -i 's|image: ${IMAGE_NAME}:[^ ]*|image: ${FULL_IMAGE}|' ${REMOTE_DIR}/docker-compose.yml"; then
+    pass "Compose file updated"
+else
+    fail "Compose file update"
+    exit 1
+fi
+
 step "Restarting ${COMPOSE_SERVICE} container"
 if ssh "$DOCKER_HOST" "cd ${REMOTE_DIR} && docker compose up -d ${COMPOSE_SERVICE}"; then
     pass "Container restarted"

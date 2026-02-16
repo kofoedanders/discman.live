@@ -25,6 +25,13 @@ RUN cp -r build/* /app/out/wwwroot/
 RUN mkdir -p /app/out/ClientApp/build
 RUN cp -r build/* /app/out/ClientApp/build/
 
+# Build new frontend
+WORKDIR /app/src/Web/new-frontend
+RUN npm install
+RUN npm run build
+RUN mkdir -p /app/out/new-frontend/dist
+RUN cp -r dist/* /app/out/new-frontend/dist/
+
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app

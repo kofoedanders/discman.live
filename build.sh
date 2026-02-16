@@ -17,6 +17,7 @@ FAILED_STEPS=()
 START_TIME=$(date +%s)
 DO_DOCKER=false
 DO_PUSH=false
+DO_DEPLOY=false
 IMAGE_TAG=""
 
 # ─── Usage ───────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ Steps: restore → compile → test (API + integration) → test (frontend) → 
 Options:
   --docker          Build Docker image after tests pass
   --push            Build and push Docker image (implies --docker)
+  --deploy          Build, push, and deploy via deploy.sh (implies --push)
   --tag TAG         Docker image tag (default: auto from git tags, e.g. 2.1)
   --skip-tests      Skip all test steps
   --skip-frontend   Skip frontend tests
@@ -45,6 +47,8 @@ Examples:
   ./build.sh --docker               # Build + test + docker image
   ./build.sh --push                 # Build + test + docker image + push
   ./build.sh --push --tag 2.5       # Same, with explicit tag
+  ./build.sh --deploy               # Full pipeline: build + test + push + deploy
+  ./build.sh --deploy --tag 2.5     # Same, with explicit tag
 EOF
     exit 0
 }
@@ -108,6 +112,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --docker)   DO_DOCKER=true; shift ;;
         --push)     DO_DOCKER=true; DO_PUSH=true; shift ;;
+        --deploy)   DO_DOCKER=true; DO_PUSH=true; DO_DEPLOY=true; shift ;;
         --tag)      IMAGE_TAG="$2"; shift 2 ;;
         --skip-tests)    SKIP_TESTS=true; shift ;;
         --skip-frontend) SKIP_FRONTEND=true; shift ;;
@@ -232,6 +237,18 @@ if [[ "$DO_DOCKER" == true ]]; then
         fi
     elif [[ "$DO_PUSH" == true ]]; then
         skip "Docker push (earlier failures)"
+    fi
+
+    # ─── Step 10: Deploy ─────────────────────────────────────────────────────
+    if [[ "$DO_DEPLOY" == true && "$STEPS_FAILED" -eq 0 ]]; then
+        step "Deploying  →  ${FULL_IMAGE}"
+        if "$SCRIPT_DIR/deploy.sh" --tag "$IMAGE_TAG"; then
+            pass "Deploy  →  ${FULL_IMAGE}"
+        else
+            fail "Deploy"
+        fi
+    elif [[ "$DO_DEPLOY" == true ]]; then
+        skip "Deploy (earlier failures)"
     fi
 else
     skip "Docker build (use --docker or --push to enable)"
