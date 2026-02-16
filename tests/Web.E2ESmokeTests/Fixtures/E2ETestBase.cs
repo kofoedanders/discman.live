@@ -5,7 +5,7 @@ using Microsoft.Playwright;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 
-namespace Web.E2ETests;
+namespace Web.E2ESmokeTests;
 
 [Category("E2E")]
 public abstract class E2ETestBase
@@ -22,7 +22,6 @@ public abstract class E2ETestBase
         _playwright = await Playwright.CreateAsync();
 
         var headless = Environment.GetEnvironmentVariable("HEADED") != "1";
-
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = headless

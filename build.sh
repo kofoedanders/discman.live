@@ -26,7 +26,7 @@ Usage: $(basename "$0") [OPTIONS]
 
 Build pipeline for discman.live
 
-Steps: restore → compile → test (backend) → test (frontend) → docker build
+Steps: restore → compile → test (API + integration) → test (frontend) → docker build
 
 Options:
   --docker          Build Docker image after tests pass
@@ -34,10 +34,14 @@ Options:
   --tag TAG         Docker image tag (default: auto from git tags, e.g. 2.1)
   --skip-tests      Skip all test steps
   --skip-frontend   Skip frontend tests
+  --smoke           Also run Playwright E2E smoke tests
+  --perf            Also run k6 performance tests (requires k6 installed)
   -h, --help        Show this help
 
 Examples:
   ./build.sh                        # Build + test only
+  ./build.sh --smoke                # Build + test + E2E smoke tests
+  ./build.sh --perf                 # Build + test + performance tests
   ./build.sh --docker               # Build + test + docker image
   ./build.sh --push                 # Build + test + docker image + push
   ./build.sh --push --tag 2.5       # Same, with explicit tag
@@ -97,6 +101,8 @@ auto_tag() {
 # ─── Parse arguments ────────────────────────────────────────────────────────
 SKIP_TESTS=false
 SKIP_FRONTEND=false
+DO_SMOKE=false
+DO_PERF=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -105,6 +111,8 @@ while [[ $# -gt 0 ]]; do
         --tag)      IMAGE_TAG="$2"; shift 2 ;;
         --skip-tests)    SKIP_TESTS=true; shift ;;
         --skip-frontend) SKIP_FRONTEND=true; shift ;;
+        --smoke)    DO_SMOKE=true; shift ;;
+        --perf)     DO_PERF=true; shift ;;
         -h|--help)  usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
@@ -136,19 +144,43 @@ else
     exit 1
 fi
 
-# ─── Step 3: Backend tests ───────────────────────────────────────────────────
-step "Running backend tests"
+# ─── Step 3: API tests ────────────────────────────────────────────────────────
+step "Running API tests"
 if [[ "$SKIP_TESTS" == true ]]; then
-    skip "Backend tests"
+    skip "API tests"
 else
-    if dotnet test "$SOLUTION" --configuration Release --no-build --no-restore --verbosity quiet --filter "Category!=E2E"; then
-        pass "Backend tests"
+    if dotnet test tests/Web.ApiTests --configuration Release --no-build --no-restore --verbosity quiet; then
+        pass "API tests"
     else
-        fail "Backend tests"
+        fail "API tests"
     fi
 fi
 
-# ─── Step 4: Frontend tests ──────────────────────────────────────────────────
+# ─── Step 4: Integration tests ───────────────────────────────────────────────
+step "Running integration tests"
+if [[ "$SKIP_TESTS" == true ]]; then
+    skip "Integration tests"
+else
+    if dotnet test tests/Web.IntegrationTests --configuration Release --no-build --no-restore --verbosity quiet; then
+        pass "Integration tests"
+    else
+        fail "Integration tests"
+    fi
+fi
+
+# ─── Step 5: E2E smoke tests (opt-in) ────────────────────────────────────────
+step "Running E2E smoke tests"
+if [[ "$SKIP_TESTS" == true || "$DO_SMOKE" != true ]]; then
+    skip "E2E smoke tests (use --smoke to enable)"
+else
+    if dotnet test tests/Web.E2ESmokeTests --configuration Release --no-build --no-restore --verbosity quiet; then
+        pass "E2E smoke tests"
+    else
+        fail "E2E smoke tests"
+    fi
+fi
+
+# ─── Step 6: Frontend tests ──────────────────────────────────────────────────
 step "Running frontend tests"
 if [[ "$SKIP_TESTS" == true || "$SKIP_FRONTEND" == true ]]; then
     skip "Frontend tests"
@@ -160,7 +192,23 @@ else
     fi
 fi
 
-# ─── Step 5: Docker build ────────────────────────────────────────────────────
+# ─── Step 7: Performance tests (opt-in) ──────────────────────────────────────
+step "Running performance tests"
+if [[ "$DO_PERF" != true ]]; then
+    skip "Performance tests (use --perf to enable)"
+else
+    if ! command -v k6 &>/dev/null; then
+        fail "Performance tests (k6 not installed — brew install k6)"
+    else
+        if dotnet test tests/Web.PerformanceTests --configuration Release --no-build --no-restore --verbosity quiet; then
+            pass "Performance tests"
+        else
+            fail "Performance tests"
+        fi
+    fi
+fi
+
+# ─── Step 8: Docker build ────────────────────────────────────────────────────
 if [[ "$DO_DOCKER" == true ]]; then
     if [[ -z "$IMAGE_TAG" ]]; then
         IMAGE_TAG=$(auto_tag)
@@ -174,7 +222,7 @@ if [[ "$DO_DOCKER" == true ]]; then
         fail "Docker build"
     fi
 
-    # ─── Step 6: Docker push ─────────────────────────────────────────────────
+    # ─── Step 9: Docker push ─────────────────────────────────────────────────
     if [[ "$DO_PUSH" == true && "$STEPS_FAILED" -eq 0 ]]; then
         step "Pushing Docker image  →  ${FULL_IMAGE}"
         if docker push "$FULL_IMAGE"; then

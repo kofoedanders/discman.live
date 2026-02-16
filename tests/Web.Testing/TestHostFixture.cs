@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -17,26 +18,21 @@ using Web.Courses;
 using Web.Infrastructure;
 using Web.Users;
 
-// Root namespace so [SetUpFixture] applies to ALL test classes in the assembly
-namespace Web.E2ETests;
+namespace Web.Testing;
 
-[NUnit.Framework.SetUpFixture]
-public class AppFixture
+public sealed class TestHostFixture : IAsyncDisposable
 {
-    private PostgreSqlContainer _postgresContainer = null!;
-    private RabbitMqContainer _rabbitMqContainer = null!;
-    private DiscmanWebApplicationFactory _factory = null!;
+    private PostgreSqlContainer? _postgresContainer;
+    private RabbitMqContainer? _rabbitMqContainer;
+    private DiscmanWebApplicationFactory? _factory;
 
-    public static AppFixture Instance { get; private set; } = null!;
     public string ServerUrl { get; private set; } = null!;
     public HttpClient HttpClient { get; private set; } = null!;
     public string PostgresConnectionString { get; private set; } = null!;
+    public IServiceProvider Services => _factory?.Services ?? throw new InvalidOperationException("Host not started");
 
-    [NUnit.Framework.OneTimeSetUp]
-    public async Task OneTimeSetUp()
+    public async Task StartAsync()
     {
-        Instance = this;
-
         _postgresContainer = new PostgreSqlBuilder()
             .WithImage("postgres:16-alpine")
             .WithDatabase("disclive")
@@ -60,7 +56,7 @@ public class AppFixture
 
         Environment.SetEnvironmentVariable("DOTNET_RABBITMQ_CON_STRING", rabbitConnectionString);
         Environment.SetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING", PostgresConnectionString);
-        Environment.SetEnvironmentVariable("DOTNET_TOKEN_SECRET", "E2E_TEST_TOKEN_SECRET_THAT_IS_LONG_ENOUGH_FOR_HMAC");
+        Environment.SetEnvironmentVariable("DOTNET_TOKEN_SECRET", "TEST_TOKEN_SECRET_THAT_IS_LONG_ENOUGH_FOR_HMAC");
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
 
         _factory = new DiscmanWebApplicationFactory(PostgresConnectionString);
@@ -72,21 +68,21 @@ public class AppFixture
 
         ServerUrl = _factory.ServerUrl
             ?? throw new InvalidOperationException("Kestrel host did not start. ServerUrl is null.");
-
-        Console.WriteLine($"[AppFixture] App started at {ServerUrl}");
     }
 
-    [NUnit.Framework.OneTimeTearDown]
-    public async Task OneTimeTearDown()
+    public async ValueTask DisposeAsync()
     {
         Serilog.Log.CloseAndFlush();
         HttpClient?.Dispose();
         _factory?.Dispose();
 
-        await Task.WhenAll(
-            _postgresContainer.DisposeAsync().AsTask(),
-            _rabbitMqContainer.DisposeAsync().AsTask()
-        );
+        if (_postgresContainer != null && _rabbitMqContainer != null)
+        {
+            await Task.WhenAll(
+                _postgresContainer.DisposeAsync().AsTask(),
+                _rabbitMqContainer.DisposeAsync().AsTask()
+            );
+        }
 
         Environment.SetEnvironmentVariable("DOTNET_RABBITMQ_CON_STRING", null);
         Environment.SetEnvironmentVariable("DOTNET_POSTGRES_CON_STRING", null);
@@ -95,7 +91,6 @@ public class AppFixture
     }
 }
 
-// CompositeHost pattern for .NET 9: https://medium.com/younited-tech-blog/end-to-end-test-a-blazor-app-with-playwright-part-3-48c0edeff4b6
 public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _postgresConnectionString;
@@ -112,12 +107,10 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
 
         builder.UseSetting("POSTGRES_CON_STRING", _postgresConnectionString);
-        builder.UseSetting("TOKEN_SECRET", "E2E_TEST_TOKEN_SECRET_THAT_IS_LONG_ENOUGH_FOR_HMAC");
+        builder.UseSetting("TOKEN_SECRET", "TEST_TOKEN_SECRET_THAT_IS_LONG_ENOUGH_FOR_HMAC");
 
         builder.ConfigureServices(services =>
         {
-            // Remove background workers that fire immediately and crash the process
-            // with unhandled Npgsql exceptions. Keep NServiceBus hosted services.
             var workerTypes = new[]
             {
                 typeof(UpdateCourseRatingsWorker),
@@ -134,14 +127,10 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
                 if (descriptor != null) services.Remove(descriptor);
             }
 
-            // Override SPA static files root to serve the pre-built React app.
-            // Startup.cs configures RootPath = "wwwroot" which is empty in dev;
-            // the CRA build output lives in ClientApp/build.
             services.AddSpaStaticFiles(configuration =>
             {
                 configuration.RootPath = "ClientApp/build";
             });
-
         });
     }
 
@@ -155,14 +144,15 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
             dbContext.Database.Migrate();
         }
 
-        // Use TaskCompletionSource to reliably capture the Kestrel address
-        // after the host has fully started (ApplicationStarted event)
+        var webProjectDir = FindWebProjectDirectory();
+
         var addressReady = new TaskCompletionSource<string[]>();
 
         builder.ConfigureWebHost(webHostBuilder =>
         {
             webHostBuilder.UseKestrel();
             webHostBuilder.UseUrls("http://127.0.0.1:0");
+            webHostBuilder.UseContentRoot(webProjectDir);
             webHostBuilder.ConfigureServices(services =>
             {
                 services.AddSingleton(provider =>
@@ -188,6 +178,23 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
 
         return new CompositeHost(testHost, kestrelHost);
     }
+
+    private static string FindWebProjectDirectory()
+    {
+        var dir = Directory.GetCurrentDirectory();
+        for (var i = 0; i < 10; i++)
+        {
+            var candidate = Path.Combine(dir, "src", "Web");
+            if (File.Exists(Path.Combine(candidate, "Web.csproj")))
+                return candidate;
+            var parent = Directory.GetParent(dir);
+            if (parent == null) break;
+            dir = parent.FullName;
+        }
+
+        var assemblyDir = Path.GetDirectoryName(typeof(Program).Assembly.Location)!;
+        return assemblyDir;
+    }
 }
 
 internal sealed class CompositeHost : IHost
@@ -209,15 +216,19 @@ internal sealed class CompositeHost : IHost
         _kestrelHost.Dispose();
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        await _testHost.StartAsync(cancellationToken);
-        await _kestrelHost.StartAsync(cancellationToken);
+        return Task.WhenAll(
+            _testHost.StartAsync(cancellationToken),
+            _kestrelHost.StartAsync(cancellationToken)
+        );
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public Task StopAsync(CancellationToken cancellationToken = default)
     {
-        await _testHost.StopAsync(cancellationToken);
-        await _kestrelHost.StopAsync(cancellationToken);
+        return Task.WhenAll(
+            _testHost.StopAsync(cancellationToken),
+            _kestrelHost.StopAsync(cancellationToken)
+        );
     }
 }
