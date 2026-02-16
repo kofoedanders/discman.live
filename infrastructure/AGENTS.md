@@ -9,10 +9,10 @@ Docker Compose · nginx (reverse proxy + TLS) · Let's Encrypt (certbot) · Post
 `docker-compose.yml` defines:
 | Service | Image | Purpose |
 |---------|-------|---------|
-| `disclive` | `sp1nakr/disclive:{version}` | Main web app (ASP.NET + React SPA) |
-| `postgres` | `andkof/postgres-plv8` | Database (plv8 extension for Marten) |
-| `rabbit` | `rabbitmq:3-management` | NServiceBus transport |
-| `nginx` | `nginx:mainline-alpine` | Reverse proxy, TLS termination |
+| `web` | `sp1nakr/disclive:{version}` | Main web app (ASP.NET + both React SPAs) |
+| `postgres` | `clkao/postgres-plv8:11-2` | PostgreSQL database |
+| `rabbitmq` | `rabbitmq:3.10.25-alpine` | NServiceBus transport |
+| `nginx` | Custom build | Reverse proxy, TLS termination |
 | `certbot` | `certbot/certbot` | Let's Encrypt certificate renewal |
 
 ELK stack (elasticsearch, logstash, kibana) is present but **commented out**.
@@ -27,22 +27,25 @@ ELK stack (elasticsearch, logstash, kibana) is present but **commented out**.
 └── elk/                       # ELK configs (commented out in compose)
 ```
 
-## DEPLOY PROCESS (MANUAL)
+## DEPLOY PROCESS
 
-1. Tag `vX.Y.Z` in git → CI builds and pushes to `ghcr.io/spinakr/discman`
-2. Update `docker-compose.yml` image version for `disclive` service
-3. `docker --context prod compose up -d disclive`
+Automated via `deploy.sh` (or `build.sh --deploy`):
+
+1. `./build.sh --deploy --tag X.Y` — builds, tests, pushes Docker image, then deploys
+2. Or `./deploy.sh --tag X.Y` — deploys an already-pushed image
+
+Deploy steps: SSH to `docker` host → pull image → update `docker-compose.yml` tag via sed → `docker compose up -d web` → health check `https://next.discman.live`
 
 ## GOTCHAS
 
 - nginx config must include WebSocket upgrade headers for SignalR (`/roundHub` path)
 - No automated rollback mechanism — manual `docker-compose` only
 - Certbot renewal: runs as oneshot container, nginx must reload after cert renewal
-- See root AGENTS.md ANTI-PATTERNS for registry mismatch and variables.env issues
+- See root AGENTS.md ANTI-PATTERNS for variables.env issues
 
 ## NGINX NOTES
 
-- Proxies all traffic to `disclive:80`
+- Proxies all traffic to `web:80` (container name: `discmanweb`)
 - WebSocket support: `proxy_set_header Upgrade $http_upgrade` for SignalR hub
 - TLS certs mounted from certbot volume
 - Static assets served directly by ASP.NET (not nginx)

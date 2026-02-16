@@ -1,33 +1,36 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-08
-**Commit:** 1005a3a
+**Updated:** 2026-02-16
 **Branch:** main
 
 ## OVERVIEW
 
-Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, React SPA frontend, and Expo React Native mobile app. Postgres (Marten document DB) for persistence, SignalR for real-time score updates, NServiceBus+RabbitMQ for async messaging.
+Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two React SPA frontends (old + new), and an Expo React Native mobile app. EF Core with PostgreSQL for persistence, SignalR for real-time score updates, NServiceBus+RabbitMQ for async messaging.
 
 ## STRUCTURE
 ```
 ./
-├── src/Web/              # ASP.NET Core backend + React SPA (main app)
-│   ├── ClientApp/        # React CRA frontend (Bulma CSS, Redux, TypeScript)
+├── src/Web/              # ASP.NET Core 9 backend + React SPAs
+│   ├── ClientApp/        # Old React frontend (CRA, React 16, Redux, Bulma CSS) → served at /
+│   ├── new-frontend/     # New React frontend (Vite, React 19, Zustand, Tailwind v4) → served at /new
 │   ├── Rounds/           # Round domain: commands, queries, handlers, domain model
 │   ├── Users/            # User domain: auth, commands, queries, domain model
 │   ├── Courses/          # Course domain
 │   ├── Tournaments/      # Tournament domain
 │   ├── Feeds/            # Activity feed domain
 │   ├── Leaderboard/      # Leaderboard queries + cache
-│   ├── Infrastructure/   # Marten config, SignalR hub, NServiceBus config
+│   ├── Infrastructure/   # EF Core DbContext, SignalR hub, NServiceBus config
 │   ├── Common/           # Cross-cutting: validation, exceptions, mapping, behaviours
 │   └── Admin/            # Razor Pages admin area (cookie-auth, /admin route)
 ├── src/mobile/           # Expo React Native mobile app (SDK 39)
-├── next/                 # Discman 2.0 rewrite (Blazor + event-sourced DDD)
+├── next/                 # Discman 2.0 rewrite (Blazor + event-sourced DDD, early stage)
 │   ├── Domain/           # Event-sourced aggregates, value objects
 │   ├── Domain.UnitTests/ # NUnit tests with Given/When/Then Scenario base class
 │   └── Web/              # Blazor Server (.NET 8)
-├── infrastructure/       # Docker Compose, nginx, ELK stack, certbot
+├── infrastructure/       # Docker Compose, nginx, certbot
+├── tests/                # API tests, integration tests, E2E smoke, performance
+├── build.sh              # Build pipeline (restore → compile → test → docker → push → deploy)
+├── deploy.sh             # Deploy to production Docker host
 └── .github/workflows/    # CI build + CodeQL scanning
 ```
 
@@ -36,11 +39,12 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, React SP
 | Task | Location | Notes |
 |------|----------|-------|
 | Add API endpoint | `src/Web/{Domain}/` | Create Command/Query + add to controller |
-| Add React page | `src/Web/ClientApp/src/components/` | Add component, wire route in `App.tsx` |
+| Add new-frontend page | `src/Web/new-frontend/src/pages/` | Add page component, wire route in `App.tsx` |
+| Add old frontend page | `src/Web/ClientApp/src/components/` | Add component, wire route in `App.tsx` |
 | Add mobile screen | `src/mobile/screens/` | Add screen, register in `navigation/` |
 | Change auth flow | `src/Web/Startup.cs` | JWT config lines 92-141 |
 | Real-time updates | `src/Web/Infrastructure/RoundsHub.cs` | SignalR hub + `HubExtensions.cs` |
-| Database schema | `src/Web/Infrastructure/MartenConfiguration.cs` | Marten auto-creates from C# models |
+| Database schema | `src/Web/Infrastructure/DiscmanContext.cs` | EF Core DbContext, entity configs in `Infrastructure/` |
 | Redux state | `src/Web/ClientApp/src/store/` | One file per domain slice |
 | Background jobs | `src/Web/{Domain}/*Worker.cs` | Hosted services registered in Startup |
 | Discman 2.0 domain | `next/Domain/` | Event-sourced aggregates |
@@ -50,12 +54,12 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, React SP
 ## ARCHITECTURE PATTERNS
 
 - **CQRS via MediatR**: Thin controllers dispatch commands/queries. Each domain folder has `Commands/`, `Queries/`, `Handlers/`
-- **Marten document DB**: PostgreSQL used as document store. Auto-creates schema. No EF Core
+- **EF Core + PostgreSQL**: Database `disclive`, schema `disclive_production`. Entity configurations in `Infrastructure/`
 - **SignalR real-time**: `RoundsHub` at `/roundHub`. JWT token passed via query string for WebSocket auth
 - **NServiceBus**: RabbitMQ transport for domain events (`NSBEvents/` folders). Message processing limited to 1 concurrent
 - **Background workers**: `UpdateCourseRatingsWorker`, `UpdateInActiveRoundsWorker`, `ResetPasswordWorker`, `UserEmailNotificationWorker`
 - **Admin area**: Razor Pages at `/admin` with cookie-based JWT auth and "AdminOnly" policy (`ClaimTypes.Name == "kofoed"`)
-- **SPA hosting**: React build served from `wwwroot/`. Dev mode proxies to CRA dev server
+- **SPA hosting**: Old React build served from `wwwroot/`, new frontend from `wwwroot/new/`. Dev mode proxies to dev servers
 
 ## CONVENTIONS
 
@@ -63,14 +67,14 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, React SP
 - Feature-folder organization: each domain has `Commands/`, `Queries/`, `Domain/`, `Handlers/`, `NSBEvents/`
 - Validators use FluentValidation, named `{Command}Validator.cs`
 - Caches are singletons: `{Domain}Cache.cs`
-- React components: PascalCase files, class components (React 16), connected via `react-redux`
-- Redux store: one file per domain slice with action creators + reducer
+- Old React frontend: PascalCase files, class components (React 16), connected via `react-redux`
+- Old Redux store: one file per domain slice with action creators + reducer
+- New React frontend: functional components, Zustand stores, Tailwind v4 CSS, react-router-dom v7
 - Mobile: Expo React Native, same Redux pattern, `screens/` for pages
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
 - `SendGrid` falls back to dummy key with console WARNING if env var missing
-- `MartenConfiguration.cs` logs connection string to console (`Console.WriteLine(constring)`)
 - `variables.env` uses mixed KEY:VALUE and KEY=VALUE syntax (docker-compose may misparse)
 - Store files >1000 lines (`Rounds.ts`, `User.ts`) -- complexity hotspots
 - `next/docker-compose.yml` contains hardcoded plaintext secrets
@@ -81,21 +85,23 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, React SP
 ```bash
 # Dev (backend + SPA)
 cd src/Web && dotnet watch run          # Backend with hot reload
-cd src/Web/ClientApp && npm start       # React dev server (proxied)
+cd src/Web/ClientApp && npm start       # Old React dev server (proxied)
+cd src/Web/new-frontend && npm run dev  # New React dev server
 
 # Dev (mobile)
 cd src/mobile && expo start
 
-# Build all
-sh build.sh                            # Builds Classic + Next + ClientApp
+# Build + test
+./build.sh                              # Restore → compile → test
+./build.sh --docker --tag 2.7           # + Docker image build
+./build.sh --push --tag 2.7             # + push to Docker Hub
+./build.sh --deploy --tag 2.7           # + deploy to production
 
-# Docker
-docker build -t discman -f src/Web/Dockerfile .
-docker-compose -f infrastructure/docker-compose.yml up
+# Deploy only (image already pushed)
+./deploy.sh --tag 2.7
 
-# Deploy (manual)
-# Tag vX.Y.Z -> CI builds and pushes to ghcr.io/spinakr/discman
-# Then update infrastructure/docker-compose.yml image version
+# Docker (local full stack)
+docker compose -f infrastructure/docker-compose.yml up
 ```
 
 ## ENVIRONMENT VARIABLES
@@ -103,7 +109,7 @@ docker-compose -f infrastructure/docker-compose.yml up
 | Variable | Purpose |
 |----------|---------|
 | `DOTNET_POSTGRES_CON_STRING` | Postgres connection string |
-| `DOTNET_TOKEN_SECRET` | JWT signing key |
+| `TOKEN_SECRET` | JWT signing key |
 | `DOTNET_RABBITMQ_CON_STRING` | RabbitMQ connection |
 | `SENDGRID_API_KEY` | Email sending |
 | `ASPNETCORE_ENVIRONMENT` | Runtime environment |
@@ -112,7 +118,8 @@ docker-compose -f infrastructure/docker-compose.yml up
 
 - Two solution files: `Discman.Classic.sln` (current production) and `next/Discman.Next.sln` (rewrite, early stage)
 - `next/` uses event sourcing with DDD, Blazor Server, .NET 8 -- not yet deployed
-- Image registry inconsistency: CI pushes to `ghcr.io/spinakr/discman`, docker-compose uses `sp1nakr/disclive`
-- React app is on v16 with class components -- no hooks migration yet
+- Docker image: `sp1nakr/disclive:{tag}` on Docker Hub
+- Production host: SSH alias `docker`, compose dir `~/discman/`, URL `https://next.discman.live`
+- Old React app is on v16 with class components -- no hooks migration yet
+- New React app is React 19 + Vite + Zustand + Tailwind v4, served at `/new`
 - Mobile app uses Expo SDK 39 (very old, ~2020)
-- No automated deployment -- manual docker-compose update after CI image push
