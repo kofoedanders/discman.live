@@ -285,3 +285,94 @@ export interface LeaderboardPlayer {
   birdieCount: number;
   bogeyCount: number;
 }
+
+// ─── Tournament Types ───
+
+export interface TournamentListing {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+}
+
+export interface TournamentCourseInfo {
+  id: string;
+  name: string;
+  layout: string;
+}
+
+export interface TournamentInfo {
+  id: string;
+  name: string;
+  players: string[];
+  admins: string[];
+  start: string;
+  end: string;
+  courses: TournamentCourseInfo[];
+  hasStarted: boolean;
+  isCompleted: boolean;
+}
+
+export interface TournamentScore {
+  name: string;
+  totalScore: number;
+  totalHcpScore: number;
+  coursesPlayed: string[];
+}
+
+export interface TournamentLeaderboard {
+  scores: TournamentScore[];
+}
+
+export interface TournamentPrice {
+  username: string;
+  scoreValue: string;
+  negativePrice?: boolean;
+}
+
+export interface TournamentFinalScore {
+  username: string;
+  score: number;
+}
+
+export interface TournamentPrices {
+  scoreboard: TournamentFinalScore[];
+  fastestPlayer: TournamentPrice | null;
+  slowestPlayer: TournamentPrice | null;
+  mostBirdies: TournamentPrice | null;
+  leastBogeysOrWorse: TournamentPrice | null;
+  longestCleanStreak: TournamentPrice | null;
+  longestDrySpell: TournamentPrice | null;
+  bounceBacks: TournamentPrice | null;
+}
+
+export interface Tournament {
+  info: TournamentInfo;
+  leaderboard: TournamentLeaderboard;
+  prices: TournamentPrices | null;
+}
+
+// ─── Course Command Types ───
+
+export interface CreateCourseCommand {
+  courseName: string;
+  layoutName: string;
+  latitude: number;
+  longitude: number;
+  numberOfHoles: number;
+  par4s: number[];
+  par5s: number[];
+}
+
+// ─── Tournament Command Types ───
+
+export interface CreateTournamentCommand {
+  name: string;
+  start: string;
+  end: string;
+}
+
+export interface AddCourseToTournamentCommand {
+  tournamentId: string;
+  courseId: string;
+}

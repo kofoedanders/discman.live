@@ -3,6 +3,7 @@ import type {
   AuthenticatedUser,
   UserDetails,
   UserStats,
+  UserAchievement,
   PlayerCourseStats,
   PaceData,
   PagedRounds,
@@ -15,6 +16,13 @@ import type {
   StrokeSpec,
   Feed,
   LeaderboardPlayer,
+  TournamentListing,
+  Tournament,
+  TournamentCourseInfo,
+  TournamentPrices,
+  CreateCourseCommand,
+  CreateTournamentCommand,
+  AddCourseToTournamentCommand,
 } from "../types";
 
 // The backend C# enum serializes StrokeOutcome as integers.
@@ -116,7 +124,7 @@ async function request<T>(
 
   if (response.status === 401) {
     localStorage.removeItem("user");
-    window.location.href = "/new/login";
+    window.location.href = "/login";
     throw new ApiError(401, "Unauthorized");
   }
 
@@ -250,5 +258,59 @@ export const api = {
       year: String(year),
     });
     return request<LeaderboardPlayer[]>(`/api/leaderboard?${qs.toString()}`);
+  },
+
+  getUserDetailsByUsername(username: string) {
+    return request<UserDetails>(`/api/users/${username}/details`);
+  },
+
+  getUserAchievements(username: string) {
+    return request<UserAchievement[]>(`/api/users/${username}/achievements`);
+  },
+
+  createCourse(cmd: CreateCourseCommand) {
+    return request<CourseVm>("/api/courses", {
+      method: "POST",
+      body: JSON.stringify(cmd),
+    });
+  },
+
+  getTournaments(onlyActive = true, username = "") {
+    const qs = new URLSearchParams({
+      onlyActive: String(onlyActive),
+      username,
+    });
+    return request<TournamentListing[]>(`/api/tournaments?${qs.toString()}`);
+  },
+
+  getTournament(tournamentId: string) {
+    return request<Tournament>(`/api/tournaments/${tournamentId}`);
+  },
+
+  createTournament(cmd: CreateTournamentCommand) {
+    return request<string>("/api/tournaments", {
+      method: "POST",
+      body: JSON.stringify(cmd),
+    });
+  },
+
+  addCourseToTournament(cmd: AddCourseToTournamentCommand) {
+    return request<TournamentCourseInfo>(`/api/tournaments/${cmd.tournamentId}/courses`, {
+      method: "PUT",
+      body: JSON.stringify(cmd),
+    });
+  },
+
+  joinTournament(tournamentId: string) {
+    return request<void>(`/api/tournaments/${tournamentId}/players`, {
+      method: "PUT",
+      body: JSON.stringify({ tournamentId }),
+    });
+  },
+
+  calculateTournamentPrices(tournamentId: string) {
+    return request<TournamentPrices>(`/api/tournaments/${tournamentId}/calculate`, {
+      method: "POST",
+    });
   },
 };
