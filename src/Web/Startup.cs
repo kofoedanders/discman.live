@@ -160,6 +160,22 @@ namespace Web
                 app.UseExceptionHandler("/Error");
             }
 
+            // Rewrite /classic/api/* and /classic/roundHub* to strip the /classic prefix.
+            // The classic frontend uses relative fetch() calls (e.g. fetch(`api/users/...`))
+            // which resolve against <base href="/classic">, producing /classic/api/... paths.
+            app.Use(async (context, next) =>
+            {
+                var path = context.Request.Path.Value;
+                if (path != null && path.StartsWith("/classic/api/", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Request.Path = new Microsoft.AspNetCore.Http.PathString(path.Substring("/classic".Length));
+                }
+                else if (path != null && path.StartsWith("/classic/roundHub", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Request.Path = new Microsoft.AspNetCore.Http.PathString(path.Substring("/classic".Length));
+                }
+                await next();
+            });
 
             app.UseStaticFiles();
             app.UseSpaStaticFiles();
