@@ -7,6 +7,14 @@ import RoundPage from "./pages/RoundPage";
 import NewRound from "./pages/NewRound";
 import FeedPage from "./pages/FeedPage";
 import LeadersPage from "./pages/LeadersPage";
+import ProfilePage from "./pages/ProfilePage";
+import UserProfilePage from "./pages/UserProfilePage";
+import CoursesPage from "./pages/CoursesPage";
+import CourseDetailPage from "./pages/CourseDetailPage";
+import CreateCoursePage from "./pages/CreateCoursePage";
+import TournamentsPage from "./pages/TournamentsPage";
+import TournamentDetailPage from "./pages/TournamentDetailPage";
+import CreateTournamentPage from "./pages/CreateTournamentPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -50,6 +58,70 @@ export default function App() {
           element={
             <ProtectedRoute>
               <LeadersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users/:username"
+          element={
+            <ProtectedRoute>
+              <UserProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses"
+          element={
+            <ProtectedRoute>
+              <CoursesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/new"
+          element={
+            <ProtectedRoute>
+              <CreateCoursePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/courses/:courseName"
+          element={
+            <ProtectedRoute>
+              <CourseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tournaments"
+          element={
+            <ProtectedRoute>
+              <TournamentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tournaments/new"
+          element={
+            <ProtectedRoute>
+              <CreateTournamentPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tournaments/:tournamentId"
+          element={
+            <ProtectedRoute>
+              <TournamentDetailPage />
             </ProtectedRoute>
           }
         />
