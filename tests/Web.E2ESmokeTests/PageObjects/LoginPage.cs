@@ -31,7 +31,7 @@ public sealed class LoginPage
 
     public Task ClickLoginAsync()
     {
-        return _page.GetByRole(AriaRole.Button, new() { Name = "Login" }).ClickAsync();
+        return _page.GetByRole(AriaRole.Button, new() { Name = "Sign In" }).ClickAsync();
     }
 
     public async Task LoginAsAsync(string username, string password)

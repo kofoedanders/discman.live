@@ -129,7 +129,7 @@ public class DiscmanWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddSpaStaticFiles(configuration =>
             {
-                configuration.RootPath = "ClientApp/build";
+                configuration.RootPath = "new-frontend/dist";
             });
         });
     }
