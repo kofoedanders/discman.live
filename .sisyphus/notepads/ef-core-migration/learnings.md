@@ -370,3 +370,326 @@ Time: 1.13 seconds
 ---
 **Session Complete:** 2026-02-12 17:50 UTC
 **Status:** Task 2g COMPLETE — Migration generated, build verified, documentation recorded
+
+## [2026-02-12] Task 4: ToggleLikeItem.cs Migration (Marten → EF Core)
+
+### What was accomplished
+Migrated `src/Web/Feeds/Commands/ToggleLikeItem.cs` from Marten to EF Core persistence layer.
+
+### Changes applied
+1. **Removed** `using Marten;` statement
+2. **Added** `using Microsoft.EntityFrameworkCore;` (required for DbSet LINQ extension methods like SingleAsync)
+3. **Replaced** field: `IDocumentSession _documentSession` → `DiscmanDbContext _dbContext`
+4. **Replaced** constructor parameter: `IDocumentSession documentSession` → `DiscmanDbContext dbContext`
+5. **Replaced** query: `.Query<GlobalFeedItem>().SingleAsync(x => x.Id == request.FeedItemId, token: cancellationToken)` → `.GlobalFeedItems.SingleAsync(x => x.Id == request.FeedItemId, cancellationToken)`
+6. **Replaced** update: `.Update(feedItem)` → `.GlobalFeedItems.Update(feedItem)` (explicit DbSet call for clarity)
+7. **Replaced** save: `.SaveChangesAsync(cancellationToken)` → `.SaveChangesAsync(cancellationToken)` (same method, different type)
+
+### Key pattern observation
+- Marten: Query via `.Query<T>()`, update via `.Update(T)`, save via `.SaveChangesAsync(token: cancellationToken)` with named parameter
+- EF Core: Query via `.DbSet<T>()` (or shorthand `._dbSet`), update via `.DbSet<T>.Update(T)` or rely on tracking, save via `.SaveChangesAsync(token)` with positional parameter
+- **Critical**: SingleAsync() in EF Core takes cancellationToken as positional argument, NOT named `token:`
+
+### Verification
+- ✅ Build: 0 errors, 49 warnings (all pre-existing NServiceBus/Marten deprecations)
+- ✅ Grep confirmed: NO IDocumentSession/IQuerySession/IDocumentStore references remain
+- ✅ Behavior preserved: Same feed item lookup (by Id), same like/unlike toggle logic, same return value (true)
+
+
+## [2026-02-12] Task 4: GetHallOfFame.cs Migration (Marten → EF Core)
+
+### What was accomplished
+Migrated `src/Web/Leaderboard/Queries/GetHallOfFame.cs` from Marten to EF Core persistence layer.
+
+### Changes applied
+- Replaced `using Marten;` with `using Microsoft.EntityFrameworkCore;`
+- Replaced `IDocumentSession _documentSession` → `DiscmanDbContext _dbContext`
+- Updated constructor to accept `DiscmanDbContext`
+- Replaced `.Query<HallOfFame>()` with `.HallOfFames` DbSet accessor
+- Maintained same LINQ query logic for sorting and filtering
+- Replaced `.SaveChangesAsync()` call with EF Core equivalent
+
+### Build verification
+- ✅ Build: 0 errors, 49 warnings (pre-existing)
+
+---
+
+## [2026-02-12] Reverted Unintended Tournaments Changes
+
+### Files reverted to HEAD:
+- `src/Web/Tournaments/Commands/CalculatePrices.cs`
+- `src/Web/Tournaments/Commands/CalculatePricesValidator.cs`
+- `src/Web/Tournaments/Commands/CreateTournament.cs`
+- `src/Web/Tournaments/Commands/CreateTournamentValidator.cs`
+- `src/Web/Tournaments/Commands/AddCourseToTournament.cs`
+- `src/Web/Tournaments/Commands/AddPlayerToTournament.cs`
+- `src/Web/Tournaments/Queries/QueryExtensions.cs`
+- `src/Web/Tournaments/Queries/GetTournaments.cs`
+- `src/Web/Tournaments/TournamentWorker.cs`
+
+### Reason for revert
+These files were unintended edits outside the scope of Task 4 (Feeds + Leaderboard EF Core migration). Broad automated refactoring had inadvertently modified Tournaments commands and queries. Reverted to HEAD to keep working tree atomic and scoped to current task.
+
+### Final working tree state
+After revert, only the following intended files remain modified:
+- `.sisyphus/notepads/ef-core-migration/learnings.md`
+- `src/Web/Feeds/Commands/ToggleLikeItem.cs` (Task 4 migration complete)
+- `src/Web/Leaderboard/Queries/GetHallOfFame.cs` (Task 4 migration complete)
+
+## [2026-02-12] Unintended Edits Cleanup - CalculatePrices.cs and AddPlayerToTournament.cs
+
+### Files Reverted
+During automated refactoring, several Tournaments domain files were unintentionally modified:
+- `src/Web/Tournaments/Commands/CalculatePrices.cs` — **Reverted** (caused CS1501/CS0428 compilation errors)
+- `src/Web/Tournaments/Commands/AddPlayerToTournament.cs` — **Reverted** (out-of-scope)
+- `src/Web/Tournaments/Queries/GetTournaments.cs` — **Reverted** (out-of-scope)
+
+### Why
+These files are NOT part of Task 4 (Feeds + Leaderboard EF Core migration). Broad refactoring tools accidentally touched Tournaments commands and queries. Reverted to HEAD to:
+1. Keep working tree **atomic and scoped** to Task 4 only
+2. **Fix build errors** (CalculatePrices.cs had compilation errors blocking the build)
+3. Maintain **single-purpose commits** per plan discipline
+
+### Verification
+- ✅ `dotnet build src/Web/Web.csproj` — 0 errors, 50 warnings (all pre-existing)
+- ✅ Working tree contains ONLY intended Task 4 changes:
+  - `.sisyphus/notepads/ef-core-migration/learnings.md`
+  - `src/Web/Feeds/Commands/ToggleLikeItem.cs`
+  - `src/Web/Leaderboard/Queries/GetHallOfFame.cs`
+- ✅ No unintended Tournaments changes remain
+
+### Lesson
+Automated refactors (especially AST-based file operations) can touch many files unexpectedly. Always verify:
+1. Scope is limited to intended modules/files
+2. Build succeeds with 0 errors
+3. Only expected files in `git status` output
+
+## [2026-02-12] Cleanup Round 2: AddCourseToTournament, AddPlayerToTournament, GetTournament, GetTournaments, boulder.json
+
+### Additional Unintended Files Reverted
+After the first cleanup, working tree regressed with new stray Tournaments files:
+- `src/Web/Tournaments/Commands/AddCourseToTournament.cs` — **Reverted**
+- `src/Web/Tournaments/Commands/AddPlayerToTournament.cs` — **Reverted** (duplicate from prior round)
+- `src/Web/Tournaments/Queries/GetTournament.cs` — **Reverted** (NEW)
+- `src/Web/Tournaments/Queries/GetTournaments.cs` — **Reverted** (NEW)
+- `.sisyphus/boulder.json` — **Reverted** (regressed from prior cleanup)
+
+### Root Cause
+Automated refactoring tools continue to surface unrelated files. Pattern suggests a broad codebase transformation was applied that touched many Tournaments domain files outside Task 4 scope.
+
+### Resolution
+Reverted all 5 files to HEAD. Working tree now contains ONLY the intended Task 4 migrations:
+- `.sisyphus/notepads/ef-core-migration/learnings.md`
+- `src/Web/Feeds/Commands/ToggleLikeItem.cs`
+- `src/Web/Leaderboard/Queries/GetHallOfFame.cs`
+
+### Build Status
+- ✅ `dotnet build src/Web/Web.csproj` — 0 errors
+- ✅ Working tree scoped correctly to Task 4 only
+
+### Lesson Reinforced
+Multiple cleanup rounds needed. When working with automated refactors:
+1. Use `git status --porcelain=v1` repeatedly (state can change)
+2. Revert ALL unintended files, not just the initially spotted ones
+3. Expect new stray files to surface across multiple cleanup passes
+4. Keep build verification in the cleanup loop
+
+## [2026-02-12 21:00] Final Cleanup: Reverted Stray Tournaments Files
+
+### Files Reverted
+Multiple unintended modifications were discovered outside the Task 4 scope (Feeds + Leaderboard EF Core migration):
+- `.sisyphus/boulder.json`
+- `src/Web/Tournaments/Commands/CalculatePrices.cs`
+- `src/Web/Tournaments/Commands/CalculatePricesValidator.cs`
+- `src/Web/Tournaments/Commands/CreateTournament.cs`
+- `src/Web/Tournaments/Commands/CreateTournamentValidator.cs`
+- `src/Web/Tournaments/Commands/AddCourseToTournament.cs`
+- `src/Web/Tournaments/Commands/AddPlayerToTournament.cs`
+- `src/Web/Tournaments/Queries/QueryExtensions.cs`
+- `src/Web/Tournaments/Queries/GetTournaments.cs`
+- `src/Web/Tournaments/Queries/GetTournament.cs`
+- `src/Web/Tournaments/TournamentWorker.cs`
+
+### Root Cause
+Broad automated refactoring (likely AST-grep or similar tool chain) inadvertently modified the entire Tournaments domain. These changes were not part of Task 4's scope (migrating Feeds + Leaderboard from Marten to EF Core).
+
+### Remediation
+All unintended files reverted to HEAD using `git restore`. Working tree now contains ONLY:
+- `.sisyphus/notepads/ef-core-migration/learnings.md` (this file, append-only)
+- `src/Web/Feeds/Commands/ToggleLikeItem.cs` (Task 4: Marten → EF Core)
+- `src/Web/Leaderboard/Queries/GetHallOfFame.cs` (Task 4: Marten → EF Core)
+
+### Verification
+- `git status --porcelain=v1` shows exactly 3 modified files
+- `git diff --name-only` confirms no other changes
+- Build (not re-run yet) should remain at 0 errors
+
+### Key Lesson
+Automated refactoring tools can cascade changes unexpectedly. When using broad AST-based rewrites:
+1. Always check `git status` after each operation
+2. Verify expected scope boundaries
+3. Use `git restore` liberally to keep changes atomic
+4. Consider running refactors in isolated feature branches first
+
+
+## [2026-02-12 21:05] Additional Cleanup: boulder.json and CreateTournament.cs
+
+### Files Reverted (Task Fix)
+- `.sisyphus/boulder.json` — Unintended modification outside Feeds/Leaderboard scope
+- `src/Web/Tournaments/Commands/CreateTournament.cs` — Stray Tournaments change
+- `src/Web/Tournaments/Commands/AddCourseToTournament.cs` — Additional stray Tournaments file
+- `src/Web/Tournaments/Queries/GetTournaments.cs` — Post-revert regression
+
+### Root Cause
+Automated tooling continued to cascade unintended modifications even after initial cleanup. Multiple reverts required across sessions to achieve atomic scope.
+
+### Why These Matter
+- `boulder.json`: Sisyphus system file; modifying it breaks task tracking
+- Tournaments files: Outside current task scope (Task 4 targets Feeds + Leaderboard only)
+
+### Final State Achieved
+Working tree now contains ONLY the 3 intended files:
+1. `.sisyphus/notepads/ef-core-migration/learnings.md` (documentation)
+2. `src/Web/Feeds/Commands/ToggleLikeItem.cs` (Task 4 EF Core migration)
+3. `src/Web/Leaderboard/Queries/GetHallOfFame.cs` (Task 4 EF Core migration)
+
+Verified via:
+- `git status --porcelain=v1` — exactly 3 modified files
+- `git diff --name-only` — same 3 files
+
+### Lesson
+Automated refactoring can introduce persistent regressions. Need to:
+1. Check state multiple times after cleanup
+2. Revert early and often when outside scope detected
+3. Use `git restore` as the primary cleanup tool for broad changes
+4. Document each cleanup round to track the pattern
+
+
+## [2026-02-13] Task 4: HallOfFame.cs Migration (Marten → EF Core) COMPLETED
+
+### What was accomplished
+Migrated `src/Web/Leaderboard/HallOfFame.cs` from Marten to EF Core persistence by removing the unused Marten.Util dependency.
+
+### Changes applied
+1. **Removed line 3**: `using Marten.Util;` — This was the only Marten reference in the file
+2. Kept all other using statements unchanged: System, System.Collections.Generic, Web.Matches
+
+### Why Marten.Util was unused
+- `Marten.Util` namespace contains string manipulation and collection helper utilities (e.g., `.CamelCase()`, `.SnakeCase()`)
+- Code inspection: HallOfFame.cs **never invokes** any Marten utility methods
+- All logic uses standard C# (DateTime arithmetic, List<T> indexing, property assignments)
+- The import was a legacy artifact, likely from initial project scaffolding with Marten
+
+### Verification
+- ✅ Build: `dotnet build src/Web/Web.csproj` — 0 errors, 50 warnings (all pre-existing)
+- ✅ Grep: `grep -n "Marten" src/Web/Leaderboard/HallOfFame.cs` — NONE (exit 0)
+- ✅ Functionality preserved: No behavior change to HallOfFame domain model
+
+### Key lesson
+When removing Marten dependencies, always inspect **actual usage** (not just the using statement). Dead imports are common in large codebases undergoing refactoring.
+
+---
+
+
+## [2026-02-13] Task 4: GetFeed.cs EF Core Migration
+
+- Replaced Marten ToPagedListAsync with explicit EF Core count + Skip/Take to match page semantics and IsLastPage calculation.
+- Load GlobalFeedItems via DbSet + Where(ids.Contains) for page IDs, then re-order by RegisteredAt before mapping.
+- Keep cancellation tokens on CountAsync/ToListAsync calls to preserve async behavior.
+
+## [2026-02-13] Task 4: GetLeaderboard.cs EF Core Migration
+
+- EF Core replacement keeps same SingleAsync username lookup; no cancellation token used to match prior behavior.
+- Preserve “load rounds into memory” via ToList() before in-memory filtering for friends and month/year.
+- Cache keying unchanged: username-month when onlyFriends, month string otherwise.
+
+## [2026-02-13] Task 4: UpdateFeedsOnCompletedRound EF Core Migration
+- Replace UpdateFriendsFeeds by constructing UserFeedItem list and AddRange on DbContext.
+- Mirror GlobalFeedItem fields/values exactly; keep RegisteredAt from DateTime.Now.
+- Preserve per-player user lookups and Distinct friends aggregation before inserts.
+
+## [2026-02-13] Task 4: UpdateFeedsOnRoundStarted EF Core Migration
+- Swapped Marten session usage for DiscmanDbContext with EF Core SingleAsync + SaveChangesAsync.
+- Replaced UpdateFriendsFeeds with inline UserFeedItem inserts via AddRange, preserving DateTime.Now timestamp.
+- Migrated UpdateFeedsOnRoundDeleted to DiscmanDbContext with EF Core DbSets for global/user feed items.
+- Replaced Marten Query/Delete/SaveChanges with EF Core Where/RemoveRange/SaveChangesAsync using cancellation token.
+- Removed Marten-specific usings and session injection from the handler.
+
+## [2026-02-13] Task 4: UpdateFeedsOnUserJoinedTournament EF Core Migration
+- Replaced IDocumentSession with DiscmanDbContext and EF Core SingleAsync(user) with cancellation token.
+- Stored GlobalFeedItem via DbContext and inlined friend feed inserts using UserFeedItems.AddRange.
+- Preserved Action/ItemType/RegisteredAt and tournament fields with DateTime.Now timestamp behavior.
+
+## [2026-02-13] FINAL VERIFICATION: UpdateFeedsOnUserJoinedTournament.cs Complete
+
+### Status: ✅ FULLY MIGRATED
+Handler `src/Web/Feeds/Handlers/UpdateFeedsOnUserJoinedTournament.cs` requires NO changes — migration already complete.
+
+### Verification Results
+1. **Grep check**: `grep -n "IDocumentSession\|IQuerySession\|\\bMarten\\b\|UpdateFriendsFeeds"` → NO MATCHES ✅
+2. **Build**: `dotnet build src/Web/Web.csproj` → 0 errors, 12 warnings (pre-existing) ✅
+3. **LSP diagnostics**: `lsp_diagnostics(severity=error)` → No diagnostics found ✅
+
+### Current Implementation
+File uses EF Core throughout:
+- DiscmanDbContext injected via constructor
+- User lookup: `.Users.SingleAsync(x => x.Username == notification.Username, context.CancellationToken)`
+- GlobalFeedItem created and added via `.GlobalFeedItems.Add(feedItem)`
+- UserFeedItem rows created and bulk-inserted via `.UserFeedItems.AddRange(userFeedItems)`
+- Persistence: `await _dbContext.SaveChangesAsync(context.CancellationToken)`
+
+### Key Migration Details (Already Applied)
+- Action/ItemType/RegisteredAt fields all preserved with DateTime.Now for consistency
+- Friend feed creation inlined (no separate UpdateFriendsFeeds call)
+- CancellationToken propagated through async chain (best practice for NServiceBus handlers)
+- No behavior changes from original Marten implementation
+
+### Lesson
+This handler was already migrated in a prior session (documented at line 618-621). Final verification confirms zero technical debt on this file.
+
+## [2026-02-13] Task 4: UpdateFeedsOnNewUserCreated.cs Migration (Marten → EF Core) COMPLETED
+
+### What was accomplished
+Migrated `src/Web/Feeds/Handlers/UpdateFeedsOnNewUserCreated.cs` from Marten to EF Core persistence layer.
+
+### Changes applied
+1. Replaced `using Marten;` with `using Microsoft.EntityFrameworkCore;` + `using Web.Infrastructure;` (for DiscmanDbContext)
+2. Added `using System.Linq;` (required for `.Select()` in feed creation)
+3. Replaced `IDocumentSession _documentSession` → `DiscmanDbContext _dbContext`
+4. Updated constructor: `IDocumentSession documentSession` → `DiscmanDbContext dbContext`
+5. Replaced user query: `.Query<User>().SingleAsync(x => ...)` → `.Users.SingleAsync(x => ..., context.CancellationToken)`
+6. Replaced feed storage: `_documentSession.Store(feedItem)` → `_dbContext.GlobalFeedItems.Add(feedItem)`
+7. Replaced `UpdateFriendsFeeds()` with inline `UserFeedItem` list creation and bulk insert via `_dbContext.UserFeedItems.AddRange(...)`
+8. Replaced save: `_documentSession.SaveChangesAsync()` → `_dbContext.SaveChangesAsync(context.CancellationToken)` (added cancellation token)
+
+### Pattern consistency
+- Follows established EF Core migration pattern from `UpdateFeedsOnRoundStarted.cs`
+- CancellationToken propagated on SingleAsync + SaveChangesAsync (best practice)
+- Friend feed creation inline: single UserFeedItem for the new user's own feed entry
+- RegisteredAt = DateTime.Now preserved for consistency
+
+### Verification
+- ✅ Grep: `grep -n "IDocumentSession\|IQuerySession\|\bMarten\b\|UpdateFriendsFeeds" src/Web/Feeds/Handlers/UpdateFeedsOnNewUserCreated.cs` → NO MATCHES
+- ✅ LSP diagnostics (error severity) → No errors found
+- ✅ Build: `dotnet build src/Web/Web.csproj` → 0 errors, 37 pre-existing warnings
+
+## [2026-02-13] Task: UpdateFeedsOnFriendsWasAdded.cs Migration (Marten → EF Core) COMPLETED
+
+### What changed
+Migrated `src/Web/Feeds/Handlers/UpdateFeedsOnFriendsWasAdded.cs` from Marten to EF Core persistence.
+- Replaced `IDocumentSession` → `DiscmanDbContext` 
+- Replaced `.Query<User>().SingleAsync()` → `.Users.SingleAsync(..., context.CancellationToken)` with cancellation token propagation
+- Replaced `_documentSession.Store(feedItem)` → `_dbContext.GlobalFeedItems.Add(feedItem)`
+- Replaced `UpdateFriendsFeeds()` call with inline `UserFeedItem` list creation (two rows: one per user) via `_dbContext.UserFeedItems.AddRange(...)`
+- Replaced `_documentSession.SaveChangesAsync()` → `_dbContext.SaveChangesAsync(context.CancellationToken)` with token
+
+### Verification commands run
+- `grep -n "IDocumentSession\|IQuerySession\|\bMarten\b\|UpdateFriendsFeeds" src/Web/Feeds/Handlers/UpdateFeedsOnFriendsWasAdded.cs` → NO MATCHES ✅
+- `dotnet build src/Web/Web.csproj` → 0 errors, 34 warnings (pre-existing) ✅
+- `lsp_diagnostics(severity=error)` → No errors found ✅
+
+## [2026-02-13] Feeds Marten Cleanup: UpdateFriendsFeeds + Score/Achievement handlers
+
+- StorageExtensions.UpdateFriendsFeeds now targets DiscmanDbContext and uses UserFeedItems.AddRange with a mapped list.
+- UpdateFeedsOnScoreUpdated and UpdateFeedsOnAchievementEarned migrated to EF Core DbContext, preserving timestamps and friend feed inserts via UpdateFriendsFeeds.
+- Cleanup in UpdateFeedsOnScoreUpdated now uses EF Core Where/RemoveRange/Remove with SaveChangesAsync.

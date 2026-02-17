@@ -5,14 +5,14 @@
 
 ## OVERVIEW
 
-Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two React SPA frontends (old + new), and an Expo React Native mobile app. EF Core with PostgreSQL for persistence, SignalR for real-time score updates, NServiceBus+RabbitMQ for async messaging.
+Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two React SPA frontends (primary + classic), and an Expo React Native mobile app. EF Core with PostgreSQL for persistence, SignalR for real-time score updates, NServiceBus+RabbitMQ for async messaging.
 
 ## STRUCTURE
 ```
 ./
 ├── src/Web/              # ASP.NET Core 9 backend + React SPAs
-│   ├── ClientApp/        # Old React frontend (CRA, React 16, Redux, Bulma CSS) → served at /
-│   ├── new-frontend/     # New React frontend (Vite, React 19, Zustand, Tailwind v4) → served at /new
+│   ├── ClientApp/        # Classic React frontend (CRA, React 16, Redux, Bulma CSS) → served at /classic
+│   ├── new-frontend/     # React frontend (Vite, React 19, Zustand, Tailwind v4) → served at /
 │   ├── Rounds/           # Round domain: commands, queries, handlers, domain model
 │   ├── Users/            # User domain: auth, commands, queries, domain model
 │   ├── Courses/          # Course domain
@@ -39,8 +39,8 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two Reac
 | Task | Location | Notes |
 |------|----------|-------|
 | Add API endpoint | `src/Web/{Domain}/` | Create Command/Query + add to controller |
-| Add new-frontend page | `src/Web/new-frontend/src/pages/` | Add page component, wire route in `App.tsx` |
-| Add old frontend page | `src/Web/ClientApp/src/components/` | Add component, wire route in `App.tsx` |
+| Add frontend page | `src/Web/new-frontend/src/pages/` | Add page component, wire route in `App.tsx` |
+| Add classic frontend page | `src/Web/ClientApp/src/components/` | Add component, wire route in `App.tsx` |
 | Add mobile screen | `src/mobile/screens/` | Add screen, register in `navigation/` |
 | Change auth flow | `src/Web/Startup.cs` | JWT config lines 92-141 |
 | Real-time updates | `src/Web/Infrastructure/RoundsHub.cs` | SignalR hub + `HubExtensions.cs` |
@@ -59,7 +59,7 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two Reac
 - **NServiceBus**: RabbitMQ transport for domain events (`NSBEvents/` folders). Message processing limited to 1 concurrent
 - **Background workers**: `UpdateCourseRatingsWorker`, `UpdateInActiveRoundsWorker`, `ResetPasswordWorker`, `UserEmailNotificationWorker`
 - **Admin area**: Razor Pages at `/admin` with cookie-based JWT auth and "AdminOnly" policy (`ClaimTypes.Name == "kofoed"`)
-- **SPA hosting**: Old React build served from `wwwroot/`, new frontend from `wwwroot/new/`. Dev mode proxies to dev servers
+- **SPA hosting**: New React frontend served from `wwwroot/` at `/`, classic React build at `wwwroot/classic/` under `/classic`. Dev mode proxies to dev servers
 
 ## CONVENTIONS
 
@@ -67,8 +67,8 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two Reac
 - Feature-folder organization: each domain has `Commands/`, `Queries/`, `Domain/`, `Handlers/`, `NSBEvents/`
 - Validators use FluentValidation, named `{Command}Validator.cs`
 - Caches are singletons: `{Domain}Cache.cs`
-- Old React frontend: PascalCase files, class components (React 16), connected via `react-redux`
-- Old Redux store: one file per domain slice with action creators + reducer
+- Classic React frontend: PascalCase files, class components (React 16), connected via `react-redux`
+- Classic Redux store: one file per domain slice with action creators + reducer
 - New React frontend: functional components, Zustand stores, Tailwind v4 CSS, react-router-dom v7
 - Mobile: Expo React Native, same Redux pattern, `screens/` for pages
 
@@ -85,8 +85,8 @@ Disc golf live scoring web app ("Discman") with ASP.NET Core 9 backend, two Reac
 ```bash
 # Dev (backend + SPA)
 cd src/Web && dotnet watch run          # Backend with hot reload
-cd src/Web/ClientApp && npm start       # Old React dev server (proxied)
-cd src/Web/new-frontend && npm run dev  # New React dev server
+cd src/Web/ClientApp && npm start       # Classic React dev server (proxied)
+cd src/Web/new-frontend && npm run dev  # Frontend dev server
 
 # Dev (mobile)
 cd src/mobile && expo start
@@ -121,5 +121,6 @@ docker compose -f infrastructure/docker-compose.yml up
 - Docker image: `sp1nakr/disclive:{tag}` on Docker Hub
 - Production host: SSH alias `docker`, compose dir `~/discman/`, URL `https://next.discman.live`
 - Old React app is on v16 with class components -- no hooks migration yet
-- New React app is React 19 + Vite + Zustand + Tailwind v4, served at `/new`
+- New React app is React 19 + Vite + Zustand + Tailwind v4, served at `/`
+- Classic frontend (old React) is served at `/classic`
 - Mobile app uses Expo SDK 39 (very old, ~2020)

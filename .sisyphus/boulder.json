@@ -1,10 +1,7 @@
 {
-  "active_plan": "/Users/andkof-priv/code/discman.live/.sisyphus/plans/ef-core-migration.md",
-  "started_at": "2026-02-12T15:21:49.358Z",
-  "session_ids": [
-    "ses_3af51db18ffe25qlToB746pfob",
-    "ses_3ad6a1ff4ffeYdL2kPNtfROlsX"
-  ],
-  "plan_name": "ef-core-migration",
+  "active_plan": "/Users/andkof-priv/code/discman.live/.sisyphus/plans/port-classic-to-new.md",
+  "started_at": "2026-02-17T12:38:00.000Z",
+  "session_ids": ["current"],
+  "plan_name": "port-classic-to-new",
   "agent": "atlas"
 }

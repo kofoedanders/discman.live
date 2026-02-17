@@ -9,8 +9,8 @@ Disc golf live scoring web application. Players track rounds in real-time with f
 | Layer | Technology | Location |
 |-------|-----------|----------|
 | Backend | ASP.NET Core 9, EF Core, PostgreSQL | `src/Web/` |
-| Old Frontend | React 16 (CRA, Redux, Bulma CSS) | `src/Web/ClientApp/` → served at `/` |
-| New Frontend | React 19 (Vite, Zustand, Tailwind v4) | `src/Web/new-frontend/` → served at `/new` |
+| Frontend | React 19 (Vite, Zustand, Tailwind v4) | `src/Web/new-frontend/` → served at `/` |
+| Classic Frontend | React 16 (CRA, Redux, Bulma CSS) | `src/Web/ClientApp/` → served at `/classic` |
 | Real-time | SignalR WebSocket hub | `/roundHub` |
 | Messaging | NServiceBus + RabbitMQ | Async domain events |
 | Mobile | Expo React Native (SDK 39) | `src/mobile/` |
@@ -28,8 +28,8 @@ Disc golf live scoring web application. Players track rounds in real-time with f
 ```
 ./
 ├── src/Web/                  # ASP.NET Core 9 backend
-│   ├── ClientApp/            # Old React frontend (CRA, served at /)
-│   ├── new-frontend/         # New React frontend (Vite, served at /new)
+│   ├── ClientApp/            # Classic React frontend (CRA, served at /classic)
+│   ├── new-frontend/         # React frontend (Vite, served at /)
 │   ├── Rounds/               # Round domain
 │   ├── Users/                # User/auth domain
 │   ├── Courses/              # Course domain
@@ -87,10 +87,10 @@ docker compose -f infrastructure/docker-compose.yml up postgres rabbitmq -d
 # 2. Start backend (hot reload)
 cd src/Web && dotnet watch run
 
-# 3. Start old frontend dev server (optional, proxied by backend)
+# 3. Start classic frontend dev server (optional, proxied by backend)
 cd src/Web/ClientApp && npm start
 
-# 4. Start new frontend dev server (optional)
+# 4. Start frontend dev server (optional)
 cd src/Web/new-frontend && npm run dev
 ```
 
