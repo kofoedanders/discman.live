@@ -2,7 +2,7 @@
   "name": "Discman",
   "short_name": "Discman",
   "description": "Live disc golf scoring",
-  "start_url": "/new/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#fefae0",
   "theme_color": "#3a5a40",

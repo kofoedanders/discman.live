@@ -84,7 +84,7 @@ namespace Web
 
 
             // In production, the React files will be served from this directory
-            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "ClientApp/build"; });
+            services.AddSpaStaticFiles(configuration => { configuration.RootPath = "new-frontend/dist"; });
 
             var connectionString = Configuration.GetValue<string>("DOTNET_POSTGRES_CON_STRING");
             services.AddDbContext<DiscmanDbContext>(options =>
@@ -190,36 +190,56 @@ namespace Web
                     adminApp.UseEndpoints(e => { e.MapRazorPages(); });
                 });
 
-            // New mobile-first frontend at /new
-            var newFrontendPath = Path.Combine(env.ContentRootPath, "new-frontend", "dist");
-            if (Directory.Exists(newFrontendPath))
+            // Classic (old) frontend at /classic
+            var classicBuildPath = Path.Combine(env.ContentRootPath, "ClientApp", "build");
+            if (Directory.Exists(classicBuildPath))
             {
-                var newFrontendFileProvider = new PhysicalFileProvider(newFrontendPath);
-                app.Map("/new", newApp =>
+                var classicFileProvider = new PhysicalFileProvider(classicBuildPath);
+                app.Map("/classic", classicApp =>
                 {
-                    newApp.UseStaticFiles(new StaticFileOptions
+                    classicApp.UseStaticFiles(new StaticFileOptions
                     {
-                        FileProvider = newFrontendFileProvider,
+                        FileProvider = classicFileProvider,
                     });
-                    newApp.Run(async context =>
+                    classicApp.Run(async context =>
                     {
                         context.Response.ContentType = "text/html";
-                        var fileInfo = newFrontendFileProvider.GetFileInfo("index.html");
+                        var fileInfo = classicFileProvider.GetFileInfo("index.html");
                         await using var stream = fileInfo.CreateReadStream();
                         await stream.CopyToAsync(context.Response.Body);
                     });
                 });
             }
 
-            app.UseSpa(spa =>
+            // New mobile-first frontend serves as the primary SPA at /
+            var newFrontendPath = Path.Combine(env.ContentRootPath, "new-frontend", "dist");
+            if (Directory.Exists(newFrontendPath))
             {
-                spa.Options.SourcePath = "ClientApp";
+                var newFrontendFileProvider = new PhysicalFileProvider(newFrontendPath);
 
-                if (env.IsDevelopment())
+                app.UseStaticFiles(new StaticFileOptions
                 {
+                    FileProvider = newFrontendFileProvider,
+                    RequestPath = "",
+                });
+
+                app.Run(async context =>
+                {
+                    context.Response.ContentType = "text/html";
+                    var fileInfo = newFrontendFileProvider.GetFileInfo("index.html");
+                    await using var stream = fileInfo.CreateReadStream();
+                    await stream.CopyToAsync(context.Response.Body);
+                });
+            }
+            else if (env.IsDevelopment())
+            {
+                // Fallback: in dev mode without built new-frontend, serve old frontend
+                app.UseSpa(spa =>
+                {
+                    spa.Options.SourcePath = "ClientApp";
                     spa.UseReactDevelopmentServer(npmScript: "start");
-                }
-            });
+                });
+            }
         }
     }
 }

@@ -2,6 +2,7 @@
   "name": "src",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/classic",
   "dependencies": {
     "@creativebulma/bulma-badge": "^1.0.1",
     "@creativebulma/bulma-tooltip": "^1.2.0",

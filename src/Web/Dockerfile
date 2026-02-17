@@ -16,19 +16,19 @@ WORKDIR /app/src/Web
 RUN dotnet restore
 RUN dotnet publish --configuration Release -o /app/out
 
-# Build frontend
+# Build classic (old) frontend with /classic base path
 WORKDIR /app/src/Web/ClientApp
 RUN npm install
-RUN npm run build
-RUN mkdir -p /app/out/wwwroot
-RUN cp -r build/* /app/out/wwwroot/
+RUN PUBLIC_URL=/classic DISABLE_ESLINT_PLUGIN=true npx react-scripts build
 RUN mkdir -p /app/out/ClientApp/build
 RUN cp -r build/* /app/out/ClientApp/build/
 
-# Build new frontend
+# Build new frontend (primary SPA at /)
 WORKDIR /app/src/Web/new-frontend
 RUN npm install
 RUN npm run build
+RUN mkdir -p /app/out/wwwroot
+RUN cp -r dist/* /app/out/wwwroot/
 RUN mkdir -p /app/out/new-frontend/dist
 RUN cp -r dist/* /app/out/new-frontend/dist/
 
