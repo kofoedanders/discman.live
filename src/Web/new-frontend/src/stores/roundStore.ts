@@ -252,9 +252,35 @@ export const useRoundStore = create<RoundState>((set, get) => ({
   setScorecardOpen: (open) => set({ scorecardOpen: open }),
 
   onRoundUpdated: (round) => {
-    const { paceData } = get();
+    const { paceData, activeHoleIndex } = get();
     const currentPace = paceData ? recalcPace(round, paceData) : get().currentPace;
-    set({ round, currentPace });
+
+    // Auto-advance: if the current user already scored this hole and all
+    // other players just completed it (via this SignalR push), move forward.
+    const username = useAuthStore.getState().user?.username;
+    let newHoleIndex = activeHoleIndex;
+    if (username) {
+      const myScoreOnActiveHole = round.playerScores
+        .find((p) => p.playerName === username)
+        ?.scores[activeHoleIndex];
+      const iScoredThisHole = myScoreOnActiveHole && myScoreOnActiveHole.strokes > 0;
+
+      if (iScoredThisHole) {
+        const allPlayersCompleted = round.playerScores.every((p) => {
+          const s = p.scores[activeHoleIndex];
+          return s && s.strokes > 0;
+        });
+        if (allPlayersCompleted) {
+          const nextHole = getNextUncompletedHole(round);
+          // Only advance forward, never jump backward
+          if (nextHole > activeHoleIndex) {
+            newHoleIndex = nextHole;
+          }
+        }
+      }
+    }
+
+    set({ round, currentPace, activeHoleIndex: newHoleIndex });
   },
 
   onRoundDeleted: (roundId) => {
