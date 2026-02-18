@@ -39,52 +39,59 @@ namespace Web.Users
 
         private void DoWork(object state)
         {
-            if (DateTime.UtcNow.DayOfWeek != DayOfWeek.Wednesday) return;
-            Thread.Sleep(10000);
-            using var scope = _serviceScopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
-
-            _logger.LogInformation("Sending notifications for passive users");
-
-            var users = dbContext.Users.ToList();
-            var usersDict = new Dictionary<string, (User user, int roundCount, DateTime? lastRoundStarted)>();
-
-            foreach (var user in users)
+            try
             {
-                var rounds = dbContext.Rounds
-                    .Where(r => r.PlayerScores.Any(p => p.PlayerName == user.Username))
-                    .Where(r => !r.Deleted)
-                    .Where(r => r.IsCompleted)
-                    .Where(r => r.StartTime > DateTime.UtcNow.Date.AddMonths(-6))
-                    .OrderByDescending(r => r.StartTime)
-                    .ToList();
+                if (DateTime.UtcNow.DayOfWeek != DayOfWeek.Wednesday) return;
+                Thread.Sleep(10000);
+                using var scope = _serviceScopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
 
-                var lastRound = rounds.FirstOrDefault();
+                _logger.LogInformation("Sending notifications for passive users");
 
-                usersDict.Add(user.Username, (user, rounds.Count, lastRound?.StartTime));
+                var users = dbContext.Users.ToList();
+                var usersDict = new Dictionary<string, (User user, int roundCount, DateTime? lastRoundStarted)>();
+
+                foreach (var user in users)
+                {
+                    var rounds = dbContext.Rounds
+                        .Where(r => r.PlayerScores.Any(p => p.PlayerName == user.Username))
+                        .Where(r => !r.Deleted)
+                        .Where(r => r.IsCompleted)
+                        .Where(r => r.StartTime > DateTime.UtcNow.Date.AddMonths(-6))
+                        .OrderByDescending(r => r.StartTime)
+                        .ToList();
+
+                    var lastRound = rounds.FirstOrDefault();
+
+                    usersDict.Add(user.Username, (user, rounds.Count, lastRound?.StartTime));
+                }
+
+                var emailsToSend = new List<SendGridMessage>();
+                foreach (var (_, (user, roundCount, lastRoundStarted)) in usersDict)
+                {
+                    if (!ShouldCustomerBeNotified(user, roundCount, lastRoundStarted)) continue;
+
+                    var sinceLastRound = DateTime.Today - lastRoundStarted.Value.Date;
+
+                    var friendsByRounds = user.Friends
+                        .OrderByDescending(f => usersDict.SingleOrDefault(u => u.Key == f).Value.roundCount)
+                        .ToList();
+
+                    emailsToSend.Add(BuildEmail(roundCount, sinceLastRound, friendsByRounds, user));
+                    user.LastEmailSent = DateTime.UtcNow;
+                    dbContext.Users.Update(user);
+                }
+
+                dbContext.SaveChanges();
+
+                foreach (var sendGridMessage in emailsToSend)
+                {
+                    SendEmail(sendGridMessage);
+                }
             }
-
-            var emailsToSend = new List<SendGridMessage>();
-            foreach (var (_, (user, roundCount, lastRoundStarted)) in usersDict)
+            catch (Exception ex)
             {
-                if (!ShouldCustomerBeNotified(user, roundCount, lastRoundStarted)) continue;
-
-                var sinceLastRound = DateTime.Today - lastRoundStarted.Value.Date;
-
-                var friendsByRounds = user.Friends
-                    .OrderByDescending(f => usersDict.SingleOrDefault(u => u.Key == f).Value.roundCount)
-                    .ToList();
-
-                emailsToSend.Add(BuildEmail(roundCount, sinceLastRound, friendsByRounds, user));
-                user.LastEmailSent = DateTime.UtcNow;
-                dbContext.Users.Update(user);
-            }
-
-            dbContext.SaveChanges();
-
-            foreach (var sendGridMessage in emailsToSend)
-            {
-                SendEmail(sendGridMessage);
+                _logger.LogError(ex, "Error sending user email notifications");
             }
         }
 

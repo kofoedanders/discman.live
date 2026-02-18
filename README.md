@@ -167,7 +167,7 @@ The production environment runs on a LAN Docker host behind nginx with Let's Enc
 | Service | Image | Purpose |
 |---------|-------|---------|
 | `web` | `sp1nakr/disclive:{version}` | ASP.NET backend + both frontends |
-| `postgres` | `clkao/postgres-plv8:11-2` | PostgreSQL database |
+| `postgres` | `postgres:16-alpine` | PostgreSQL database |
 | `rabbitmq` | `rabbitmq:3.10.25-alpine` | NServiceBus message transport |
 | `nginx` | Custom build | Reverse proxy, TLS termination |
 | `certbot` | `certbot/certbot` | Let's Encrypt certificate renewal |

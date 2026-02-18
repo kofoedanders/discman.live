@@ -29,34 +29,41 @@ namespace Web.Courses
 
         private void DoWork(object state)
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
-
-            var cutoff = DateTime.UtcNow.AddDays(-2);
-            var activeRounds = dbContext.Rounds
-                .Where(r => !r.Deleted)
-                .Where(r => !r.IsCompleted)
-                .Where(r => r.StartTime < cutoff)
-                .ToList();
-
-            if (!activeRounds.Any()) return;
-
-            _logger.LogInformation($"Cleaning up active rounds older than 3 days. {activeRounds.Count} active rounds will be completed or deleted");
-            foreach (var round in activeRounds)
+            try
             {
-                if (round.PlayerScores.SelectMany(s => s.Scores).Count(s => s.Strokes != 0) < 10)
+                using var scope = _serviceScopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
+
+                var cutoff = DateTime.UtcNow.AddDays(-2);
+                var activeRounds = dbContext.Rounds
+                    .Where(r => !r.Deleted)
+                    .Where(r => !r.IsCompleted)
+                    .Where(r => r.StartTime < cutoff)
+                    .ToList();
+
+                if (!activeRounds.Any()) return;
+
+                _logger.LogInformation($"Cleaning up active rounds older than 3 days. {activeRounds.Count} active rounds will be completed or deleted");
+                foreach (var round in activeRounds)
                 {
-                    round.Deleted = true;
-                }
-                else
-                {
-                    round.IsCompleted = true;
+                    if (round.PlayerScores.SelectMany(s => s.Scores).Count(s => s.Strokes != 0) < 10)
+                    {
+                        round.Deleted = true;
+                    }
+                    else
+                    {
+                        round.IsCompleted = true;
+                    }
+
+                    dbContext.Rounds.Update(round);
                 }
 
-                dbContext.Rounds.Update(round);
+                dbContext.SaveChanges();
             }
-
-            dbContext.SaveChanges();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up inactive rounds");
+            }
         }
 
         public Task StopAsync(CancellationToken stoppingToken)

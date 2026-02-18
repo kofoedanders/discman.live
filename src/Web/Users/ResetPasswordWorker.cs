@@ -30,20 +30,27 @@ namespace Web.Users
 
         private void DoWork(object state)
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
-
-            var expiredRequests = dbContext.ResetPasswordRequests
-                .Where(r => r.CreatedAt.AddHours(2) < DateTime.UtcNow)
-                .ToList();
-
-            foreach (var expiredRequest in expiredRequests)
+            try
             {
-                dbContext.ResetPasswordRequests.Remove(expiredRequest);
-                Log.Information($"Deleting expired reset password request for email {expiredRequest.Email} {expiredRequest.Id}");
-            }
+                using var scope = _serviceScopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
+
+                var expiredRequests = dbContext.ResetPasswordRequests
+                    .Where(r => r.CreatedAt.AddHours(2) < DateTime.UtcNow)
+                    .ToList();
+
+                foreach (var expiredRequest in expiredRequests)
+                {
+                    dbContext.ResetPasswordRequests.Remove(expiredRequest);
+                    Log.Information($"Deleting expired reset password request for email {expiredRequest.Email} {expiredRequest.Id}");
+                }
             
-            dbContext.SaveChanges();
+                dbContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cleaning up expired password reset requests");
+            }
         }
 
         public Task StopAsync(CancellationToken stoppingToken)

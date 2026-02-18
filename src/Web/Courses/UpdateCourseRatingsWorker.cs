@@ -30,56 +30,63 @@ namespace Web.Courses
 
         private void DoWork(object state)
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
-            var courses = dbContext.Courses.ToList();
-            _logger.LogInformation($"Updating ratings of all {courses.Count} courses");
-            
-            foreach (var course in courses)
+            try
             {
-                try
+                using var scope = _serviceScopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<DiscmanDbContext>();
+                var courses = dbContext.Courses.ToList();
+                _logger.LogInformation($"Updating ratings of all {courses.Count} courses");
+            
+                foreach (var course in courses)
                 {
-                    var cutoff = DateTime.UtcNow.AddYears(-1);
-                    var roundsOnCourse = dbContext.Rounds
-                        .Where(r => r.CourseName == course.Name)
-                        .Where(r => r.CourseLayout == course.Layout)
-                        .Where(r => r.StartTime > cutoff)
-                        .Where(r => r.IsCompleted)
-                        .ToList();
-
-                    if (!roundsOnCourse.Any())
+                    try
                     {
-                        _logger.LogInformation($"No rounds found for course {course.Id} {course.Name} {course.Layout}");
-                        continue;
-                    }
+                        var cutoff = DateTime.UtcNow.AddYears(-1);
+                        var roundsOnCourse = dbContext.Rounds
+                            .Where(r => r.CourseName == course.Name)
+                            .Where(r => r.CourseLayout == course.Layout)
+                            .Where(r => r.StartTime > cutoff)
+                            .Where(r => r.IsCompleted)
+                            .ToList();
 
-                    foreach (var courseHole in course.Holes)
-                    {
-                        var average = roundsOnCourse
-                            .SelectMany(r => r.PlayerScores
-                                .Select(s => s.Scores.FirstOrDefault(hs => hs.Hole.Number == courseHole.Number)))
-                            .Where(hs => hs != null)
-                            .Average(s => s.RelativeToPar);
-                        courseHole.Average = average;
-                    }
+                        if (!roundsOnCourse.Any())
+                        {
+                            _logger.LogInformation($"No rounds found for course {course.Id} {course.Name} {course.Layout}");
+                            continue;
+                        }
 
-                    var orderedHoles = course.Holes.OrderByDescending(s => s.Average).Select(s => s.Number).ToArray();
-                    foreach (var courseHole in course.Holes)
-                    {
-                        courseHole.Rating = Array.IndexOf(orderedHoles, courseHole.Number) + 1;
-                        courseHole.Average += courseHole.Par;
-                    }
+                        foreach (var courseHole in course.Holes)
+                        {
+                            var average = roundsOnCourse
+                                .SelectMany(r => r.PlayerScores
+                                    .Select(s => s.Scores.FirstOrDefault(hs => hs.Hole.Number == courseHole.Number)))
+                                .Where(hs => hs != null)
+                                .Average(s => s.RelativeToPar);
+                            courseHole.Average = average;
+                        }
+
+                        var orderedHoles = course.Holes.OrderByDescending(s => s.Average).Select(s => s.Number).ToArray();
+                        foreach (var courseHole in course.Holes)
+                        {
+                            courseHole.Rating = Array.IndexOf(orderedHoles, courseHole.Number) + 1;
+                            courseHole.Average += courseHole.Par;
+                        }
                     
 
-                    dbContext.Courses.Update(course);
+                        dbContext.Courses.Update(course);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogWarning($"Failed to update ratings of course {course.Id} {course.Name} {course.Layout}. {e.StackTrace}");
+                    }
                 }
-                catch (Exception e)
-                {
-                    _logger.LogWarning($"Failed to update ratings of course {course.Id} {course.Name} {course.Layout}. {e.StackTrace}");
-                }
-            }
 
-            dbContext.SaveChanges();
+                dbContext.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating course ratings");
+            }
         }
 
         public Task StopAsync(CancellationToken stoppingToken)

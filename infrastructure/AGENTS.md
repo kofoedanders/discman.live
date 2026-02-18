@@ -2,7 +2,7 @@
 
 ## STACK
 
-Docker Compose · nginx (reverse proxy + TLS) · Let's Encrypt (certbot) · PostgreSQL (with plv8) · RabbitMQ
+Docker Compose · nginx (reverse proxy + TLS) · Let's Encrypt (certbot) · PostgreSQL 16 · RabbitMQ
 
 ## DOCKER COMPOSE SERVICES
 
@@ -10,7 +10,7 @@ Docker Compose · nginx (reverse proxy + TLS) · Let's Encrypt (certbot) · Post
 | Service | Image | Purpose |
 |---------|-------|---------|
 | `web` | `sp1nakr/disclive:{version}` | Main web app (ASP.NET + both React SPAs) |
-| `postgres` | `clkao/postgres-plv8:11-2` | PostgreSQL database |
+| `postgres` | `postgres:16-alpine` | PostgreSQL database |
 | `rabbitmq` | `rabbitmq:3.10.25-alpine` | NServiceBus transport |
 | `nginx` | Custom build | Reverse proxy, TLS termination |
 | `certbot` | `certbot/certbot` | Let's Encrypt certificate renewal |
