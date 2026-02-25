@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOCKER_HOST="docker"
-REMOTE_DIR="~/discman"
-IMAGE_NAME="sp1nakr/disclive"
-COMPOSE_SERVICE="web"
-HEALTH_URL="https://next.discman.live"
-HEALTH_TIMEOUT=90
+DOCKER_HOST="${DOCKER_HOST:-docker}"
+REMOTE_DIR="${REMOTE_DIR:-~/discman}"
+IMAGE_NAME="${IMAGE_NAME:-sp1nakr/disclive}"
+COMPOSE_SERVICE="${COMPOSE_SERVICE:-web}"
+HEALTH_URL="${HEALTH_URL:-https://discman.live}"
+HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-90}"
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'

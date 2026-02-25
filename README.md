@@ -2,7 +2,7 @@
 
 Disc golf live scoring web application. Players track rounds in real-time with friends, view leaderboards, activity feeds, and course statistics. Built for a small community of friends.
 
-**Production URL:** https://next.discman.live
+**Production URL:** https://discman.live
 
 ## Architecture
 
@@ -145,7 +145,7 @@ The Docker image is built from `src/Web/Dockerfile` as a multi-stage build that 
 ./deploy.sh --tag 2.7
 ```
 
-`deploy.sh` connects to the production Docker host via SSH (host alias `docker`), pulls the image, updates the `docker-compose.yml` image tag, restarts the web container, and runs a health check against `https://next.discman.live`.
+`deploy.sh` connects to the production Docker host via SSH (host alias `docker`), pulls the image, updates the `docker-compose.yml` image tag, restarts the web container, and runs a health check against `https://discman.live`.
 
 ### Manual
 

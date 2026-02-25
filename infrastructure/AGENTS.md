@@ -34,7 +34,7 @@ Automated via `deploy.sh` (or `build.sh --deploy`):
 1. `./build.sh --deploy --tag X.Y` — builds, tests, pushes Docker image, then deploys
 2. Or `./deploy.sh --tag X.Y` — deploys an already-pushed image
 
-Deploy steps: SSH to `docker` host → pull image → update `docker-compose.yml` tag via sed → `docker compose up -d web` → health check `https://next.discman.live`
+Deploy steps: SSH to `docker` host → pull image → update `docker-compose.yml` tag via sed → `docker compose up -d web` → health check `https://discman.live`
 
 ## GOTCHAS
 

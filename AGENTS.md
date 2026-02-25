@@ -119,7 +119,7 @@ docker compose -f infrastructure/docker-compose.yml up
 - Two solution files: `Discman.Classic.sln` (current production) and `next/Discman.Next.sln` (rewrite, early stage)
 - `next/` uses event sourcing with DDD, Blazor Server, .NET 8 -- not yet deployed
 - Docker image: `sp1nakr/disclive:{tag}` on Docker Hub
-- Production host: SSH alias `docker`, compose dir `~/discman/`, URL `https://next.discman.live`
+- Production host: SSH alias `docker`, compose dir `~/discman/`, URL `https://discman.live`
 - Old React app is on v16 with class components -- no hooks migration yet
 - New React app is React 19 + Vite + Zustand + Tailwind v4, served at `/`
 - Classic frontend (old React) is served at `/classic`
