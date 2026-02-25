@@ -13,9 +13,18 @@ public sealed class AppFixture
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
-        Instance = new TestHostFixture();
+        var externalBaseUrl = Environment.GetEnvironmentVariable("E2E_BASE_URL");
+        Instance = new TestHostFixture(externalBaseUrl);
         await Instance.StartAsync();
-        Console.WriteLine($"[E2ESmoke] App started at {Instance.ServerUrl}");
+
+        if (string.IsNullOrWhiteSpace(externalBaseUrl))
+        {
+            Console.WriteLine($"[E2ESmoke] App started at {Instance.ServerUrl}");
+        }
+        else
+        {
+            Console.WriteLine($"[E2ESmoke] Using deployed app at {Instance.ServerUrl}");
+        }
     }
 
     [OneTimeTearDown]

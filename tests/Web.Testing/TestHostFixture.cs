@@ -22,6 +22,7 @@ namespace Web.Testing;
 
 public sealed class TestHostFixture : IAsyncDisposable
 {
+    private readonly string? _externalServerUrl;
     private PostgreSqlContainer? _postgresContainer;
     private RabbitMqContainer? _rabbitMqContainer;
     private DiscmanWebApplicationFactory? _factory;
@@ -31,8 +32,26 @@ public sealed class TestHostFixture : IAsyncDisposable
     public string PostgresConnectionString { get; private set; } = null!;
     public IServiceProvider Services => _factory?.Services ?? throw new InvalidOperationException("Host not started");
 
+    public TestHostFixture(string? externalServerUrl = null)
+    {
+        _externalServerUrl = string.IsNullOrWhiteSpace(externalServerUrl)
+            ? null
+            : externalServerUrl.TrimEnd('/');
+    }
+
     public async Task StartAsync()
     {
+        if (!string.IsNullOrWhiteSpace(_externalServerUrl))
+        {
+            ServerUrl = _externalServerUrl;
+            HttpClient = new HttpClient
+            {
+                BaseAddress = new Uri(ServerUrl)
+            };
+
+            return;
+        }
+
         _postgresContainer = new PostgreSqlBuilder()
             .WithImage("postgres:16-alpine")
             .WithDatabase("disclive")

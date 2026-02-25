@@ -30,13 +30,13 @@ Build pipeline for discman.live
 Steps: restore → compile → test (API + integration) → test (frontend) → docker build
 
 Options:
+    -d, --deploy      Build, push, and deploy via deploy.sh (implies --push)
   --docker          Build Docker image after tests pass
   --push            Build and push Docker image (implies --docker)
-  --deploy          Build, push, and deploy via deploy.sh (implies --push)
   --tag TAG         Docker image tag (default: auto from git tags, e.g. 2.1)
   --skip-tests      Skip all test steps
   --skip-frontend   Skip frontend tests
-  --smoke           Also run Playwright E2E smoke tests
+    --smoke           Also run Playwright E2E smoke tests (auto-enabled for -d/--deploy)
   --perf            Also run k6 performance tests (requires k6 installed)
   -h, --help        Show this help
 
@@ -47,7 +47,7 @@ Examples:
   ./build.sh --docker               # Build + test + docker image
   ./build.sh --push                 # Build + test + docker image + push
   ./build.sh --push --tag 2.5       # Same, with explicit tag
-  ./build.sh --deploy               # Full pipeline: build + test + push + deploy
+    ./build.sh --deploy               # Full pipeline: build + test + smoke + push + deploy
   ./build.sh --deploy --tag 2.5     # Same, with explicit tag
 EOF
     exit 0
@@ -89,17 +89,44 @@ elapsed() {
 }
 
 auto_tag() {
-    local latest
+    local latest=""
+
+    next_minor() {
+        local v
+        v="${1#v}"
+        if [[ "$v" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            local major minor
+            major="${v%%.*}"
+            minor="${v##*.}"
+            echo "${major}.$((minor + 1))"
+            return 0
+        fi
+        return 1
+    }
+
+    # For deploy pipelines, prefer currently deployed version as baseline.
+    if [[ "$DO_DEPLOY" == true ]]; then
+        local deploy_host deploy_remote_dir deploy_image
+        deploy_host="${DOCKER_HOST:-docker}"
+        deploy_remote_dir="${REMOTE_DIR:-~/discman}"
+        deploy_image="${IMAGE_NAME:-sp1nakr/disclive}"
+
+        latest=$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$deploy_host" "grep -oP 'image:.*${deploy_image}:\\K[^ ]+' ${deploy_remote_dir}/docker-compose.yml" 2>/dev/null || echo "")
+        if [[ -n "$latest" ]] && next_minor "$latest" >/dev/null; then
+            next_minor "$latest"
+            return
+        fi
+    fi
+
+    # Fallback to git tags.
     latest=$(git tag --sort=-v:refname | head -1 2>/dev/null || echo "")
-    if [[ -z "$latest" ]]; then
-        echo "2.0"
+    if [[ -n "$latest" ]] && next_minor "$latest" >/dev/null; then
+        next_minor "$latest"
         return
     fi
-    latest="${latest#v}"
-    local major minor
-    major="$(cut -d'.' -f1 <<< "$latest")"
-    minor="$(cut -d'.' -f2 <<< "$latest")"
-    echo "${major}.$((minor + 1))"
+
+    # Initial version if no usable source exists.
+    echo "2.0"
 }
 
 # ─── Parse arguments ────────────────────────────────────────────────────────
@@ -112,7 +139,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --docker)   DO_DOCKER=true; shift ;;
         --push)     DO_DOCKER=true; DO_PUSH=true; shift ;;
-        --deploy)   DO_DOCKER=true; DO_PUSH=true; DO_DEPLOY=true; shift ;;
+        -d|--deploy) DO_DOCKER=true; DO_PUSH=true; DO_DEPLOY=true; shift ;;
         --tag)      IMAGE_TAG="$2"; shift 2 ;;
         --skip-tests)    SKIP_TESTS=true; shift ;;
         --skip-frontend) SKIP_FRONTEND=true; shift ;;
@@ -122,6 +149,11 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; usage ;;
     esac
 done
+
+# Deploy pipelines must always run smoke tests.
+if [[ "$DO_DEPLOY" == true ]]; then
+    DO_SMOKE=true
+fi
 
 cd "$SCRIPT_DIR"
 
